@@ -1,0 +1,664 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #0a0e27;
+    --secondary: #1a1f3a;
+    --accent: #00d4ff;
+    --danger: #ff0055;
+    --success: #00ff41;
+    --warning: #ffaa00;
+    --text: #e0e0e0;
+    --text-dark: #a0a0a0;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    font-family: 'Arial', sans-serif;
+    background: var(--primary);
+    color: var(--text);
+    overflow: hidden;
+}
+
+#game-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+}
+
+#babylon-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+}
+
+/* ====== UI OVERLAY ====== */
+#game-ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 14, 39, 0.95);
+    pointer-events: all;
+    z-index: 200;
+}
+
+.screen.active {
+    display: flex;
+}
+
+/* ====== TITRE ====== */
+.title-content {
+    text-align: center;
+    animation: fadeIn 1s ease-in;
+}
+
+.title-content h1 {
+    font-size: 3.5em;
+    margin-bottom: 10px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent);
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    font-size: 1.3em;
+    color: var(--text-dark);
+    margin-bottom: 5px;
+}
+
+.location {
+    font-size: 0.9em;
+    color: var(--text-dark);
+    margin-bottom: 40px;
+    font-style: italic;
+}
+
+.btn-main {
+    padding: 15px 40px;
+    font-size: 1.1em;
+    background: linear-gradient(135deg, var(--accent), #0088ff);
+    color: var(--primary);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    pointer-events: all;
+}
+
+.btn-main:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+}
+
+/* ====== HUD COMBAT ====== */
+.hud-panel {
+    position: absolute;
+    top: 20px;
+    width: calc(100% - 40px);
+    left: 20px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: all;
+    gap: 20px;
+    z-index: 101;
+}
+
+.hud-left {
+    flex: 1;
+}
+
+.hud-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.character-panel {
+    background: rgba(26, 31, 58, 0.9);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 15px 20px;
+    min-width: 280px;
+    max-width: 350px;
+    backdrop-filter: blur(10px);
+}
+
+.character-panel h3 {
+    color: var(--accent);
+    margin-bottom: 12px;
+    font-size: 1.2em;
+    text-shadow: 0 0 10px var(--accent);
+}
+
+.character-panel.enemy h3 {
+    color: var(--danger);
+    text-shadow: 0 0 10px var(--danger);
+}
+
+.hp-container {
+    margin-bottom: 12px;
+}
+
+.hp-label {
+    font-size: 0.8em;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+}
+
+.hp-bar {
+    width: 100%;
+    height: 25px;
+    background: var(--primary);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--warning));
+    width: 100%;
+    transition: width 0.3s ease;
+}
+
+#enemy-hp-bar {
+    background: linear-gradient(90deg, var(--danger), var(--warning)) !important;
+}
+
+.hp-bar span {
+    font-size: 0.75em;
+    color: var(--text);
+}
+
+.stats {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9em;
+    color: var(--text-dark);
+}
+
+.stats div {
+    display: flex;
+    gap: 5px;
+}
+
+.stats span {
+    color: var(--text);
+    font-weight: bold;
+}
+
+/* ====== COMBAT LOG ====== */
+.combat-log {
+    position: absolute;
+    bottom: 320px;
+    left: 20px;
+    right: 20px;
+    height: 120px;
+    background: rgba(10, 14, 39, 0.85);
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    padding: 12px;
+    overflow-y: auto;
+    font-size: 0.9em;
+    pointer-events: all;
+}
+
+.log-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--secondary);
+    margin-bottom: 4px;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-entry.player {
+    color: var(--accent);
+}
+
+.log-entry.enemy {
+    color: var(--danger);
+}
+
+.log-entry.system {
+    color: var(--warning);
+}
+
+.log-entry.success {
+    color: var(--success);
+}
+
+/* ====== COMBAT ACTIONS ====== */
+.combat-actions {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    height: 280px;
+    background: rgba(26, 31, 58, 0.95);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px;
+    pointer-events: all;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.turn-indicator {
+    text-align: center;
+    font-size: 1.1em;
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    flex: 1;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 15px;
+    background: var(--secondary);
+    border: 2px solid var(--accent);
+    border-radius: 5px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: bold;
+}
+
+.action-btn:hover {
+    background: var(--accent);
+    color: var(--primary);
+    transform: scale(1.05);
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.action-btn .icon {
+    font-size: 1.5em;
+}
+
+.action-btn .description {
+    font-size: 0.7em;
+    opacity: 0.8;
+    font-weight: normal;
+}
+
+/* ====== DIALOGUE PANEL ====== */
+.dialogue-panel {
+    position: absolute;
+    bottom: 310px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    max-width: 90%;
+    background: rgba(26, 31, 58, 0.95);
+    border: 2px solid var(--warning);
+    border-radius: 8px;
+    padding: 20px;
+    pointer-events: all;
+    z-index: 110;
+    backdrop-filter: blur(10px);
+}
+
+.dialogue-speaker {
+    color: var(--warning);
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.dialogue-text {
+    color: var(--text);
+    font-size: 1em;
+    line-height: 1.5;
+}
+
+/* ====== END SCREEN ====== */
+.end-content {
+    text-align: center;
+    background: rgba(26, 31, 58, 0.95);
+    padding: 60px;
+    border: 2px solid var(--accent);
+    border-radius: 15px;
+    pointer-events: all;
+}
+
+.end-content h1 {
+    font-size: 3em;
+    margin-bottom: 30px;
+    color: var(--accent);
+}
+
+.end-message {
+    font-size: 1.2em;
+    margin-bottom: 40px;
+    line-height: 1.8;
+    color: var(--text);
+}
+
+/* ====== DEBUG INFO ====== */
+.debug-info {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(10, 14, 39, 0.9);
+    border: 1px solid var(--success);
+    border-radius: 5px;
+    padding: 10px 15px;
+    font-size: 0.85em;
+    color: var(--success);
+    font-family: monospace;
+    z-index: 50;
+    pointer-events: all;
+}
+
+.debug-info div {
+    margin: 3px 0;
+}
+
+/* ====== ANIMATIONS ====== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.damage-number {
+    position: absolute;
+    font-weight: bold;
+    font-size: 1.5em;
+    pointer-events: none;
+    animation: slideUp 1s ease-out forwards;
+}
+
+.damage-number.player {
+    color: var(--danger);
+}
+
+.damage-number.heal {
+    color: var(--success);
+}
+
+/* ====== RESPONSIVENESS ====== */
+@media (max-width: 1024px) {
+    .combat-actions {
+        height: auto;
+    }
+
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .character-panel {
+        min-width: 200px;
+        padding: 12px 15px;
+    }
+}
+
+/* ====== FRAGMENT COUNTER ====== */
+#fragment-counter {
+    position: absolute;
+    top: 100px;
+    right: 20px;
+    background: rgba(10, 14, 39, 0.9);
+    border: 2px solid var(--success);
+    border-radius: 8px;
+    padding: 15px 20px;
+    min-width: 180px;
+    text-align: center;
+    pointer-events: all;
+    z-index: 105;
+    backdrop-filter: blur(10px);
+}
+
+#fragment-counter h4 {
+    color: var(--success);
+    font-size: 0.9em;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#fragment-count {
+    font-size: 2em;
+    color: var(--success);
+    font-weight: bold;
+    text-shadow: 0 0 10px var(--success);
+    margin: 0;
+}
+
+/* ====== DIALOGUE CONTAINER ====== */
+.hacking-puzzle-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    pointer-events: all;
+}
+
+.hacking-puzzle-modal {
+    background: rgba(10, 14, 39, 0.98);
+    border: 3px solid var(--accent);
+    border-radius: 15px;
+    padding: 40px;
+    max-width: 500px;
+    text-align: center;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+    animation: slideUp 0.4s ease-out;
+}
+
+.hacking-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.hacking-header h2 {
+    font-size: 1.8em;
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent);
+    margin: 0;
+}
+
+.hack-timer {
+    font-size: 1.3em;
+    color: var(--danger);
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.hacking-instruction {
+    color: var(--text);
+    font-size: 1em;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.hack-grid {
+    display: grid;
+    gap: 15px;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: rgba(50, 50, 80, 0.5);
+    border-radius: 10px;
+}
+
+.hack-node {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--accent), #0088ff);
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: var(--primary);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+}
+
+.hack-node:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.8);
+}
+
+.hack-node-correct {
+    background: var(--success) !important;
+    border-color: var(--success) !important;
+    box-shadow: 0 0 20px var(--success) !important;
+    pointer-events: none;
+}
+
+.hack-node-wrong {
+    background: var(--danger) !important;
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 15px var(--danger) !important;
+}
+
+.hack-progress {
+    color: var(--text);
+    font-size: 1em;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+.hack-btn-cancel {
+    padding: 12px 30px;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    font-size: 1em;
+}
+
+.hack-btn-cancel:hover {
+    background: #ff1166;
+    transform: scale(1.05);
+}
+
+/* Animation de succès */
+.hacking-puzzle-modal.hack-success {
+    border-color: var(--success);
+    animation: pulse-success 0.4s ease-out;
+}
+
+.hacking-puzzle-modal.hack-success .hacking-header h2 {
+    color: var(--success);
+    text-shadow: 0 0 10px var(--success);
+}
+
+/* Animation d'échec */
+.hacking-puzzle-modal.hack-failure {
+    border-color: var(--danger);
+    animation: pulse-failure 0.4s ease-out;
+}
+
+.hacking-puzzle-modal.hack-failure .hacking-header h2 {
+    color: var(--danger);
+    text-shadow: 0 0 10px var(--danger);
+}
+
+@keyframes pulse-success {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+@keyframes pulse-failure {
+    0% { transform: scale(1); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* ====== SCROLLBAR ====== */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #00ffff;
+}

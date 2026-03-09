@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>OVERRIDE — Campus Zero</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #03050c;
+    overflow: hidden;
+    font-family: 'Courier New', Courier, monospace;
+    user-select: none;
+  }
+
+  #renderCanvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+    outline: none;
+  }
+
+  /* ── LOADER ─────────────────────────────────────── */
+  #loader {
+    position: fixed;
+    inset: 0;
+    background: #03050c;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    transition: opacity 0.8s ease;
+  }
+  #loader .logo {
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: 14px;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  #loader .sub {
+    font-size: 10px;
+    letter-spacing: 5px;
+    color: #2E86DE;
+    margin-bottom: 56px;
+    text-transform: uppercase;
+  }
+  #loader .bar-wrap {
+    width: 260px;
+    height: 2px;
+    background: rgba(46,134,222,0.12);
+    position: relative;
+    overflow: hidden;
+  }
+  #loader .bar-fill {
+    position: absolute;
+    height: 100%;
+    width: 55%;
+    background: linear-gradient(90deg, transparent, #2E86DE, #48CAE4, transparent);
+    animation: scanbar 1.6s ease-in-out infinite;
+  }
+  @keyframes scanbar {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(280%); }
+  }
+  #loader .hint {
+    margin-top: 28px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #1e3355;
+  }
+  #loader .err {
+    color: #EF4444;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-align: center;
+    line-height: 2;
+    padding: 0 40px;
+  }
+
+  /* ── HUD ─────────────────────────────────────────── */
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .hud-title {
+    position: absolute;
+    top: 22px;
+    left: 26px;
+  }
+  .hud-title h1 {
+    font-size: 19px;
+    font-weight: 900;
+    letter-spacing: 7px;
+    color: #ffffff;
+    line-height: 1;
+  }
+  .hud-title .tagline {
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: #2E86DE;
+    margin-top: 5px;
+  }
+
+  .panel {
+    position: absolute;
+    background: rgba(3, 5, 12, 0.80);
+    border: 1px solid rgba(46,134,222,0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 14px 20px;
+    font-size: 11px;
+    line-height: 2.1;
+    color: #475569;
+  }
+
+  #pStatus {
+    top: 22px;
+    right: 26px;
+    border-left: 2px solid #2E86DE;
+    min-width: 190px;
+  }
+  .lbl  { color: #334155; }
+  .val  { color: #48CAE4; font-weight: bold; }
+  .grn  { color: #10B981; }
+  .org  { color: #F97316; }
+  .red  { color: #EF4444; }
+
+  #pControls {
+    bottom: 26px;
+    left: 26px;
+    border-left: 2px solid rgba(46,134,222,0.45);
+    line-height: 2.2;
+  }
+  .key {
+    display: inline-block;
+    background: rgba(46,134,222,0.08);
+    border: 1px solid rgba(46,134,222,0.35);
+    color: #7DD3FC;
+    font-family: inherit;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-weight: bold;
+    min-width: 24px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* Réticule */
+  .reticle {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px; height: 18px;
+    opacity: 0.5;
+  }
+  .reticle::before, .reticle::after {
+    content: '';
+    position: absolute;
+    background: #48CAE4;
+  }
+  .reticle::before {
+    width: 1px; height: 100%;
+    left: 50%; transform: translateX(-50%);
+  }
+  .reticle::after {
+    height: 1px; width: 100%;
+    top: 50%; transform: translateY(-50%);
+  }
+
+  /* Barre état verticale gauche */
+  .side-badge {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: rgba(46,134,222,0.25);
+    padding: 0 8px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── LOADER ───────────────────────────────────────── -->
+<div id="loader">
+  <div class="logo">OVERRIDE</div>
+  <div class="sub">Campus Zero — Initialisation Physique Havok</div>
+  <div class="bar-wrap"><div class="bar-fill"></div></div>
+  <div class="hint" id="loadHint">Chargement du moteur...</div>
+</div>
+
+<!-- ── CANVAS ───────────────────────────────────────── -->
+<canvas id="renderCanvas" tabindex="0"></canvas>
+
+<!-- ── HUD ──────────────────────────────────────────── -->
+<div id="hud">
+
+  <div class="hud-title">
+    <h1>OVERRIDE</h1>
+    <div class="tagline">CAMPUS ZERO  ·  BASE CODE v1.0</div>
+  </div>
+
+  <div class="panel" id="pStatus">
+    <div><span class="lbl">ÉTAT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="sv">—</span></div>
+    <div><span class="lbl">X&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="px">0.00</span></div>
+    <div><span class="lbl">Y&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="py">0.00</span></div>
+    <div><span class="lbl">Z&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="pz">0.00</span></div>
+    <div><span class="lbl">VITESSE&nbsp;&nbsp;</span><span class="val" id="sp">0.00</span></div>
+    <div><span class="lbl">FPS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="fps">0</span></div>
+  </div>
+
+  <div class="panel" id="pControls">
+    <div><span class="key">Z</span>&nbsp;/&nbsp;<span class="key">S</span>&nbsp;&nbsp;Avancer / Reculer</div>
+    <div><span class="key">Q</span>&nbsp;/&nbsp;<span class="key">D</span>&nbsp;&nbsp;Gauche / Droite</div>
+    <div><span class="key">ESPACE</span>&nbsp;&nbsp;Sauter</div>
+    <div><span class="key">SOURIS</span>&nbsp;&nbsp;Orienter caméra</div>
+    <div><span class="key">SCROLL</span>&nbsp;&nbsp;Zoom caméra</div>
+  </div>
+
+  <div class="reticle"></div>
+  <div class="side-badge">OVERRIDE · CAMPUS ZERO · 2027</div>
+  
+
+</div>
+<div id="combatUI" style="display: none; position: fixed; inset: 0; pointer-events: none; z-index: 100;">
+  <div style="position: absolute; top: 0; width: 100%; height: 12%; background: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));"></div>
+  <div style="position: absolute; bottom: 0; width: 100%; height: 30%; background: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0)); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 30px;">
+    
+    <div id="cLog" style="color: #48CAE4; font-size: 16px; margin-bottom: 20px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 8px rgba(72,202,228,0.5);">Rupture détectée. Engagement imminent.</div>
+    
+    <div style="display: flex; gap: 150px; font-size: 14px; color: white; margin-bottom: 30px; font-weight: bold; text-transform: uppercase;">
+      <div>JOUEUR <span id="cHpj" style="color: #10B981;">100</span>/100 HP | <span id="cMpj" style="color: #2E86DE;">50</span>/50 MP</div>
+      <div>ENTITÉ ALPHA <span id="cHpe" style="color: #EF4444;">120</span>/120 HP</div>
+    </div>
+
+    <div id="cMenu" style="display: flex; gap: 30px; opacity: 0; transition: opacity 0.3s;">
+      <div class="action-box">
+        <span class="hotkey">1</span>
+        <span class="act-name">FRAPPE LAME</span>
+        <span class="act-cost">0 MP</span>
+      </div>
+      <div class="action-box">
+        <span class="hotkey">2</span>
+        <span class="act-name" style="color: #2E86DE;">SURCHARGE</span>
+        <span class="act-cost" style="color: #2E86DE;">15 MP</span>
+      </div>
+      <div class="action-box">
+        <span class="hotkey">3</span>
+        <span class="act-name" style="color: #10B981;">RÉPARATION</span>
+        <span class="act-cost" style="color: #10B981;">OBJ x<span id="cPot">3</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .action-box {
+    background: rgba(3, 5, 12, 0.8); border: 1px solid rgba(46,134,222,0.3);
+    padding: 10px 20px; border-radius: 4px; display: flex; flex-direction: column; align-items: center;
+    min-width: 140px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .hotkey {
+    background: #fff; color: #000; font-weight: bold; font-size: 14px;
+    padding: 2px 8px; border-radius: 2px; margin-bottom: 8px;
+  }
+  .act-name { font-size: 12px; letter-spacing: 2px; margin-bottom: 4px; }
+  .act-cost { font-size: 10px; color: #64748b; }
+</style>
+
+<!-- ── BABYLON JS ─────────────────────────────────────── -->
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+<script>
+
+// ═════════════════════════════════════════════════════
+//  ⚙️  CONFIG
+// ═════════════════════════════════════════════════════
+const CFG = {
+  // Physique
+  gravity:         -15,
+  playerMass:       75,
+  friction:          0.05,
+  restitution:       0.0,
+
+  // Personnage
+  capHeight:         1.8,
+  capRadius:         0.38,
+  moveSpeed:         7.5,      
+  jumpVelocity:      9.5,      
+  groundCheckDist:   0.20,     
+
+  // Caméra (Modifiée)
+  camRadius:         4.5,      // BEAUCOUP plus proche (avant: 8.0)
+  camAlpha:         -Math.PI / 2,
+  camBeta:           Math.PI / 2.6, // Angle légèrement abaissé pour être derrière le joueur
+  camMinR:           2.0,
+  camMaxR:           15,
+  
+  // Effet de zoom dynamique (Nouveau)
+  camFovIdle:        0.65,     // FOV réduit = zoom quand arrêté
+  camFovMove:        0.85,     // FOV large = sensation de vitesse en mouvement
+
+  // Fluidité (Modifiée)
+  rotLerp:           0.13,     
+  camLerp:           0.25,     // PLUS RÉACTIF pour suivre le joueur (avant: 0.09)
+  camFovLerp:        0.04,     // Vitesse très douce pour l'effet de zoom
+};
+
+// ═════════════════════════════════════════════════════
+//  🎨  PALETTE OVERRIDE (Dark Cyber)
+// ═════════════════════════════════════════════════════
+const P = {
+  bg:       new BABYLON.Color4(0.012, 0.020, 0.048, 1),
+  fog:      new BABYLON.Color3(0.012, 0.020, 0.045),
+  ground:   new BABYLON.Color3(0.055, 0.075, 0.105),
+  bldA:     new BABYLON.Color3(0.065, 0.105, 0.190),   // Bleu profond
+  bldB:     new BABYLON.Color3(0.042, 0.068, 0.135),   // Bleu très sombre
+  bldC:     new BABYLON.Color3(0.090, 0.155, 0.255),   // Bleu intermédiaire
+  prop:     new BABYLON.Color3(0.095, 0.120, 0.160),
+  glow:     new BABYLON.Color3(0.040, 0.220, 0.520),
+  glowE:    new BABYLON.Color3(0.160, 0.520, 0.900),   // Emissive néon
+  bodyCol:  new BABYLON.Color3(0.130, 0.210, 0.370),
+  bodyE:    new BABYLON.Color3(0.020, 0.060, 0.150),
+  headCol:  new BABYLON.Color3(0.980, 0.450, 0.090),
+  headE:    new BABYLON.Color3(0.400, 0.135, 0.015),
+  dirCol:   new BABYLON.Color3(0.150, 0.600, 0.960),
+  dirE:     new BABYLON.Color3(0.040, 0.300, 0.600),
+};
+
+// ═════════════════════════════════════════════════════
+//  🎮  ÉTAT GLOBAL
+// ═════════════════════════════════════════════════════
+const G = {
+  keys:      {},
+  jumpReq:   false,
+  grounded:  false,
+  facing:    0,
+  moveDir:   new BABYLON.Vector3(0, 0, 0),
+};
+
+// ═════════════════════════════════════════════════════
+//  🔧  CHARGEMENT DYNAMIQUE DE HAVOK
+//  On utilise unpkg (@babylonjs/havok) qui expose le
+//  global HavokPhysics de façon fiable en UMD.
+// ═════════════════════════════════════════════════════
+function loadHavok() {
+  return new Promise((resolve, reject) => {
+    // Si déjà chargé (hot-reload), on l'utilise directement
+    if (typeof HavokPhysics !== "undefined") {
+      return HavokPhysics().then(resolve).catch(reject);
+    }
+    const s    = document.createElement("script");
+    s.src      = "https://cdn.babylonjs.com/havok/HavokPhysics_umd.js";; // Updated to use local file
+    s.onload   = () => {
+      if (typeof HavokPhysics === "undefined") {
+        reject(new Error("HavokPhysics introuvable après chargement du script."));
+      } else {
+        HavokPhysics().then(resolve).catch(reject);
+      }
+    };
+    s.onerror  = () => reject(new Error("Impossible de charger Havok depuis unpkg."));
+    document.head.appendChild(s);
+  });
+}
+// ═════════════════════════════════════════════════════
+//  ⚔️  SYSTÈME DE COMBAT AMÉLIORÉ
+// ═════════════════════════════════════════════════════
+const COMBAT = {
+  active: false,
+  turn: 'NONE', // 'PLAYER', 'ENEMY', 'BUSY'
+  enemyMesh: null,
+  
+  // Stats
+  pMaxHp: 100, pHp: 100, pMaxMp: 50, pMp: 50, pPotions: 3,
+  eMaxHp: 120, eHp: 120,
+
+  // Fonction pour écouter le clavier pendant le combat
+  handleInput: function(evt) {
+    if (this.turn !== 'PLAYER') return;
+    
+    if (evt.key === '1') this.action('ATTACK');
+    if (evt.key === '2') this.action('SKILL');
+    if (evt.key === '3') this.action('ITEM');
+  },
+
+  init: function(scene, camera, player, enemy) {
+    this.active = true;
+    this.enemyMesh = enemy;
+    this.turn = 'BUSY';
+    
+    // Attacher l'écouteur d'événements clavier pour le combat
+    this.boundInputHandler = this.handleInput.bind(this);
+    window.addEventListener("keydown", this.boundInputHandler);
+    
+    player.agg.body.setLinearVelocity(BABYLON.Vector3.Zero());
+    
+    // Caméra de combat dynamique
+    const midPoint = player.mesh.position.add(enemy.position).scale(0.5);
+    camera.target = midPoint;
+    camera.alpha = -Math.PI / 3;
+    camera.beta = Math.PI / 2.2;
+    camera.radius = 9;
+
+    document.getElementById("hud").style.display = "none";
+    document.getElementById("combatUI").style.display = "block";
+    this.updateUI();
+    this.log("COMBAT INITIÉ. CALCUL DES VECTEURS...");
+
+    setTimeout(() => this.setTurn('PLAYER'), 1500);
+  },
+
+  log: function(msg) { document.getElementById("cLog").textContent = msg; },
+  
+  updateUI: function() {
+    document.getElementById("cHpj").textContent = this.pHp;
+    document.getElementById("cMpj").textContent = this.pMp;
+    document.getElementById("cHpe").textContent = this.eHp;
+    document.getElementById("cPot").textContent = this.pPotions;
+    
+    // Afficher ou cacher le menu selon le tour
+    const menu = document.getElementById("cMenu");
+    menu.style.opacity = (this.turn === 'PLAYER') ? "1" : "0.3";
+  },
+
+  setTurn: function(who) {
+    this.turn = who;
+    this.updateUI();
+    
+    if (who === 'PLAYER') {
+      this.log("VOTRE TOUR. SÉLECTIONNEZ UNE ACTION (1, 2, 3).");
+    } else if (who === 'ENEMY') {
+      setTimeout(() => this.enemyAI(), 1000);
+    }
+  },
+
+  action: function(type) {
+    if (this.turn !== 'PLAYER') return;
+    this.setTurn('BUSY');
+
+    if (type === 'ATTACK') {
+      const dmg = 15 + Math.floor(Math.random() * 10);
+      this.eHp -= dmg;
+      this.log(`FRAPPE LAME : Vous infligez ${dmg} dégâts !`);
+    } 
+    else if (type === 'SKILL') {
+      if (this.pMp >= 15) {
+        this.pMp -= 15;
+        const dmg = 35 + Math.floor(Math.random() * 15);
+        this.eHp -= dmg;
+        this.log(`SURCHARGE ÉLECTRIQUE : Coup critique de ${dmg} dégâts !`);
+      } else {
+        this.log("Énergie insuffisante !");
+        return this.setTurn('PLAYER');
+      }
+    } 
+    else if (type === 'ITEM') {
+      if (this.pPotions > 0) {
+        this.pPotions--;
+        this.pHp = Math.min(this.pMaxHp, this.pHp + 40);
+        this.log("KITS DE RÉPARATION UTILISÉ : +40 HP.");
+      } else {
+        this.log("Inventaire vide !");
+        return this.setTurn('PLAYER');
+      }
+    }
+
+    this.checkWinLoss('ENEMY');
+  },
+
+  enemyAI: function() {
+    this.log("L'Entité Alpha prépare sa séquence...");
+    
+    setTimeout(() => {
+      // Choix de l'attaque de l'ennemi (3 compétences)
+      const roll = Math.random();
+      
+      if (roll < 0.20 && this.eHp < 50) {
+        // 20% de chance de se soigner s'il est bas en vie
+        const heal = 30;
+        this.eHp = Math.min(this.eMaxHp, this.eHp + heal);
+        this.log(`RÉGÉNÉRATION ALPHA : L'entité récupère ${heal} HP.`);
+        
+      } else if (roll < 0.40) {
+        // 20% de chance d'attaque lourde
+        const dmg = 25 + Math.floor(Math.random() * 10);
+        this.pHp -= dmg;
+        this.log(`DÉCHARGE PLASMA ! Vous subissez ${dmg} dégâts massifs.`);
+        
+      } else {
+        // 60% attaque normale
+        const dmg = 10 + Math.floor(Math.random() * 8);
+        this.pHp -= dmg;
+        this.log(`Laser mineur. Vous perdez ${dmg} HP.`);
+      }
+      
+      this.checkWinLoss('PLAYER');
+    }, 1800);
+  },
+
+  checkWinLoss: function(nextTurn) {
+    this.updateUI();
+    setTimeout(() => {
+      if (this.eHp <= 0) {
+        this.log("ENTITÉ DÉTRUITE. FIN DU PROTOCOLE.");
+        this.enemyMesh.dispose();
+        setTimeout(() => this.endCombat(), 2000);
+      } else if (this.pHp <= 0) {
+        this.log("SYSTÈME CRITIQUE. VOUS ÊTES MORT.");
+        // Relancer la page après 3 secondes
+        setTimeout(() => location.reload(), 3000);
+      } else {
+        this.setTurn(nextTurn);
+      }
+    }, 1500);
+  },
+
+  endCombat: function() {
+    this.active = false;
+    window.removeEventListener("keydown", this.boundInputHandler);
+    document.getElementById("combatUI").style.display = "none";
+    document.getElementById("hud").style.display = "block";
+    
+    // Redonner le focus au canvas pour reprendre les déplacements fluides
+    document.getElementById("renderCanvas").focus();
+  }
+};
+// ═════════════════════════════════════════════════════
+//  🚀  POINT D'ENTRÉE
+// ═════════════════════════════════════════════════════
+async function init() {
+  const canvas  = document.getElementById("renderCanvas");
+  const hint    = document.getElementById("loadHint");
+  const loader  = document.getElementById("loader");
+
+  hint.textContent = "BabylonJS prêt — Chargement Havok WASM...";
+
+  const engine = new BABYLON.Engine(canvas, true, {
+    antialias:             true,
+    adaptToDeviceRatio:    true,
+    preserveDrawingBuffer: false,
+  });
+
+  let scene;
+  try {
+    hint.textContent = "Initialisation du moteur physique...";
+    scene = await buildScene(engine, canvas);
+  } catch (err) {
+    console.error(err);
+    loader.innerHTML = `<div class="err">
+      ⚠ ERREUR — IMPOSSIBLE DE CHARGER HAVOK<br>
+      <span style="color:#475569;font-size:10px">
+        Vérifiez votre connexion internet et rechargez la page.<br>
+        ${err.message || ""}
+      </span>
+    </div>`;
+    return;
+  }
+
+  engine.runRenderLoop(() => scene.render());
+  window.addEventListener("resize", () => engine.resize());
+
+  // Masquer le loader
+  loader.style.opacity = "0";
+  setTimeout(() => (loader.style.display = "none"), 800);
+  canvas.focus();
+}
+
+// ═════════════════════════════════════════════════════
+//  🏗️  CONSTRUCTION DE LA SCÈNE
+// ═════════════════════════════════════════════════════
+async function buildScene(engine, canvas) {
+  const scene       = new BABYLON.Scene(engine);
+  scene.clearColor  = P.bg;
+  scene.ambientColor = new BABYLON.Color3(0.04, 0.06, 0.10);
+  scene.fogMode     = BABYLON.Scene.FOGMODE_EXP2;
+  scene.fogColor    = P.fog;
+  scene.fogDensity  = 0.0080;
+
+  // ── PHYSIQUE HAVOK ─────────────────────────────────
+  // ── Charger Havok dynamiquement ─────────────────────
+  // On injecte le script UMD et on attend qu'il soit prêt
+  // avant d'appeler HavokPhysics(), garantissant que le
+  // global est disponible peu importe l'ordre de chargement.
+  const havok = await loadHavok();
+  const plugin = new BABYLON.HavokPlugin(true, havok);
+  scene.enablePhysics(new BABYLON.Vector3(0, CFG.gravity, 0), plugin);
+
+  // ── LUMIÈRES ───────────────────────────────────────
+  buildLights(scene);
+
+  // ── CARTE ──────────────────────────────────────────
+  buildMap(scene);
+
+  // ── PERSONNAGE ─────────────────────────────────────
+  const player = buildPlayer(scene);
+
+  // ── CAMÉRA 3ÈME PERSONNE ──────────────────────────
+  const camera = buildCamera(scene, canvas, player.mesh);
+
+  // ── INPUTS ─────────────────────────────────────────
+  bindInput();
+
+  // ── BOUCLE ─────────────────────────────────────────
+  scene.registerBeforeRender(() => loop(scene, player, camera, engine));
+
+  return scene;
+}
+
+// ═════════════════════════════════════════════════════
+//  💡  LUMIÈRES
+// ═════════════════════════════════════════════════════
+function buildLights(scene) {
+  // Hémisphérique — ambiance globale froide
+  const hemi        = new BABYLON.HemisphericLight("hemi", BABYLON.Vector3.Up(), scene);
+  hemi.intensity    = 0.28;
+  hemi.diffuse      = new BABYLON.Color3(0.18, 0.28, 0.50);
+  hemi.groundColor  = new BABYLON.Color3(0.02, 0.03, 0.06);
+  hemi.specular     = BABYLON.Color3.Black();
+
+  // Directionnelle — lumière lunaire froide
+  const moon       = new BABYLON.DirectionalLight("moon", new BABYLON.Vector3(-0.4, -1.0, -0.35), scene);
+  moon.intensity   = 0.60;
+  moon.diffuse     = new BABYLON.Color3(0.60, 0.72, 1.00);
+  moon.specular    = new BABYLON.Color3(0.08, 0.14, 0.28);
+  moon.position    = new BABYLON.Vector3(25, 40, -15);
+
+  // Points ARIA — néons bleus électriques sur les bâtiments
+  [
+    { p: [  0,  6,  18], r: 20, i: 110 },  // Bâtiment principal
+    { p: [-15,  5,  12], r: 15, i:  75 },  // Aile gauche
+    { p: [ 15,  5,  12], r: 15, i:  75 },  // Aile droite
+    { p: [-22,  4,  -6], r: 14, i:  60 },  // Bibliothèque
+    { p: [  0,  2, -30], r: 10, i:  35 },  // Entrée
+    { p: [  8,  3,  -4], r:  8, i:  30 },  // Module droit
+  ].forEach(({ p: [x, y, z], r, i }, idx) => {
+    const pt      = new BABYLON.PointLight(`pt${idx}`, new BABYLON.Vector3(x, y, z), scene);
+    pt.diffuse    = new BABYLON.Color3(0.12, 0.52, 1.00);
+    pt.specular   = new BABYLON.Color3(0.04, 0.22, 0.60);
+    pt.range      = r;
+    pt.intensity  = i;
+  });
+}
+
+// ═════════════════════════════════════════════════════
+//  🧱  MATÉRIAU SIMPLE
+// ═════════════════════════════════════════════════════
+function mkMat(name, scene, diff, emit = null) {
+  const m         = new BABYLON.StandardMaterial(name, scene);
+  m.diffuseColor  = diff;
+  m.specularColor = new BABYLON.Color3(0.05, 0.10, 0.22);
+  m.specularPower = 90;
+  if (emit) m.emissiveColor = emit;
+  return m;
+}
+
+// ═════════════════════════════════════════════════════
+//  🗺️  CARTE DU CAMPUS
+// ═════════════════════════════════════════════════════
+function buildMap(scene) {
+  const mGround = mkMat("mGr", scene, P.ground);
+  const mA      = mkMat("mA",  scene, P.bldA);
+  const mB      = mkMat("mB",  scene, P.bldB);
+  const mC      = mkMat("mC",  scene, P.bldC);
+  const mGlow   = mkMat("mGl", scene, P.glow,  P.glowE);
+  const mProp   = mkMat("mPr", scene, P.prop);
+
+  // ── Sol ────────────────────────────────────────────
+  const ground      = BABYLON.MeshBuilder.CreateGround("ground",
+    { width: 80, height: 80, subdivisions: 2 }, scene);
+  ground.material   = mGround;
+  ground.isPickable = true;
+  new BABYLON.PhysicsAggregate(ground, BABYLON.PhysicsShapeType.BOX,
+    { mass: 0, restitution: 0, friction: 0.90 }, scene);
+
+  // ── Helpers ────────────────────────────────────────
+  // Boîte statique avec physique
+  function box(name, w, h, d, x, y, z, m) {
+    const b       = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+    b.position.set(x, y, z);
+    b.material    = m;
+    b.isPickable  = true;
+    new BABYLON.PhysicsAggregate(b, BABYLON.PhysicsShapeType.BOX,
+      { mass: 0, restitution: 0, friction: 0.65 }, scene);
+    return b;
+  }
+  // Bande lumineuse déco (pas de physique)
+  function glow(name, w, h, d, x, y, z) {
+    const g       = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+    g.position.set(x, y, z);
+    g.material    = mGlow;
+    g.isPickable  = false;
+    return g;
+  }
+
+  // ══ BÂTIMENT PRINCIPAL — fond centre ══════════════
+  box("bMain",     22, 9.0, 8.5,    0,  4.5,  22, mA);
+  box("bMainTop",  22, 1.8, 9.2,    0, 10.0,  22, mB);
+  glow("gM1", 20, 0.10, 0.08,  0, 9.60, 18.26);
+  glow("gM2", 20, 0.10, 0.08,  0, 5.50, 18.26);
+  glow("gM3", 20, 0.10, 0.08,  0, 2.20, 18.26);
+  // Panneau ARIA lumineux
+  const sign     = BABYLON.MeshBuilder.CreatePlane("sign", { width: 6.5, height: 1.6 }, scene);
+  sign.position.set(0, 7.2, 18.30);
+  sign.material  = mkMat("mSgn", scene, new BABYLON.Color3(0.08, 0.18, 0.38),
+                          new BABYLON.Color3(0.22, 0.60, 1.00));
+
+  // ══ AILE GAUCHE ════════════════════════════════════
+  box("bLeft",     9, 7.0, 17,   -16, 3.5, 13, mB);
+  box("bLeftTop",  9, 1.2, 18,   -16, 7.6, 13, mA);
+  glow("gL1", 0.10, 5.0, 0.10, -11.55, 5.5, 13);
+
+  // ══ AILE DROITE ════════════════════════════════════
+  box("bRight",    9, 7.0, 17,    16, 3.5, 13, mB);
+  box("bRightTop", 9, 1.2, 18,    16, 7.6, 13, mA);
+  glow("gR1", 0.10, 5.0, 0.10,  11.55, 5.5, 13);
+
+  // ══ BIBLIOTHÈQUE — côté gauche ═════════════════════
+  box("bLib",      13, 6.0, 11,  -22, 3.0,  -6, mC);
+  box("bLibTop",   13, 0.9, 12,  -22, 6.5,  -6, mB);
+  glow("gLb1", 11, 0.10, 0.08, -22, 6.10, -0.50);
+  glow("gLb2", 11, 0.10, 0.08, -22, 2.80, -0.50);
+
+  // ══ MODULE — côté droit ════════════════════════════
+  box("bMod",      7, 5.0, 7,    20, 2.5,  -4, mB);
+  glow("gMd", 0.10, 3.2, 0.08, 16.56, 3.5, -4);
+
+  // ══ PYLÔNES D'ENTRÉE ══════════════════════════════
+  [-5, 5].forEach((x, i) => {
+    const cyl   = BABYLON.MeshBuilder.CreateCylinder(`pyl${i}`,
+      { height: 5.5, diameter: 0.72, tessellation: 10 }, scene);
+    cyl.position.set(x, 2.75, -28);
+    cyl.material    = mA;
+    cyl.isPickable  = true;
+    new BABYLON.PhysicsAggregate(cyl, BABYLON.PhysicsShapeType.CYLINDER,
+      { mass: 0 }, scene);
+    // Anneau lumineux
+    const ring  = BABYLON.MeshBuilder.CreateTorus(`pylR${i}`,
+      { diameter: 1.15, thickness: 0.12, tessellation: 20 }, scene);
+    ring.position.set(x, 5.50, -28);
+    ring.material   = mGlow;
+    ring.isPickable = false;
+  });
+
+  // ══ ESCALIER + PLATEFORME (gauche) ═══════════════
+  [
+    [5, 0.28, 3.2, -8, 0.14, 10.0],
+    [5, 0.28, 3.2, -8, 0.42, 11.4],
+    [5, 0.28, 3.2, -8, 0.70, 12.8],
+    [5, 0.28, 3.2, -8, 0.98, 14.2],
+  ].forEach(([w, h, d, x, y, z], i) => box(`step${i}`, w, h, d, x, y, z, mB));
+  box("plat", 5, 0.28, 5.5, -8, 1.26, 15.8, mA);
+  glow("gPlat", 5, 0.06, 0.06, -8, 1.44, 13.0);
+
+  // ══ BANCS — cour centrale ═════════════════════════
+  [[-6,-10],[6,-10],[-6,-18],[6,-18]].forEach(([x, z], i) => {
+    // Assise
+    const seat    = BABYLON.MeshBuilder.CreateBox(`bseat${i}`,
+      { width: 2.4, height: 0.14, depth: 0.65 }, scene);
+    seat.position.set(x, 0.44, z);
+    seat.material = mProp;
+    seat.isPickable = true;
+    new BABYLON.PhysicsAggregate(seat, BABYLON.PhysicsShapeType.BOX, { mass: 0 }, scene);
+    // Pieds
+    [-0.86, 0.86].forEach((ox, j) => {
+      const leg   = BABYLON.MeshBuilder.CreateBox(`bleg${i}${j}`,
+        { width: 0.10, height: 0.44, depth: 0.56 }, scene);
+      leg.position.set(x + ox, 0.22, z);
+      leg.material = mProp;
+      new BABYLON.PhysicsAggregate(leg, BABYLON.PhysicsShapeType.BOX, { mass: 0 }, scene);
+    });
+  });
+
+  // ══ CAISSES — décor ════════════════════════════════
+  [
+    [ 8.0, 0.50, -5.0],
+    [ 9.5, 0.43, -4.5],
+    [ 8.5, 1.36, -5.0],   // caisse empilée
+    [-8.0, 0.50, -8.0],
+    [-9.5, 0.43, -7.2],
+  ].forEach(([x, y, z], i) => {
+    const s   = 0.88;
+    const cr  = BABYLON.MeshBuilder.CreateBox(`cr${i}`, { size: s }, scene);
+    cr.position.set(x, y, z);
+    cr.material    = mProp;
+    cr.isPickable  = true;
+    new BABYLON.PhysicsAggregate(cr, BABYLON.PhysicsShapeType.BOX,
+      { mass: 0, restitution: 0.05, friction: 0.55 }, scene);
+  });
+
+  // ══ MURS INVISIBLES — bordure du campus ═══════════
+  [
+    [80, 5, 1,   0, 2.5, -40],
+    [80, 5, 1,   0, 2.5,  40],
+    [1,  5, 80, -40, 2.5,  0],
+    [1,  5, 80,  40, 2.5,  0],
+  ].forEach(([w, h, d, x, y, z], i) => {
+    const wall         = BABYLON.MeshBuilder.CreateBox(`wall${i}`,
+      { width: w, height: h, depth: d }, scene);
+    wall.position.set(x, y, z);
+    wall.isVisible     = false;
+    wall.isPickable    = true;   // Pickable pour le raycast sol
+    new BABYLON.PhysicsAggregate(wall, BABYLON.PhysicsShapeType.BOX, { mass: 0 }, scene);
+  });
+  // ══ ENNEMI (Entité Alpha) ═══════════════════════════
+  const enemy = BABYLON.MeshBuilder.CreateBox("enemyObj", {size: 1.5}, scene);
+  enemy.position.set(0, 1.5, -15); // Placé devant le joueur au démarrage
+  const mEnemy = new BABYLON.StandardMaterial("mEnemy", scene);
+  mEnemy.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
+  mEnemy.emissiveColor = new BABYLON.Color3(0.5, 0.0, 0.0);
+  enemy.material = mEnemy;
+  
+  // Animation de flottaison simple
+  let alpha = 0;
+  scene.registerBeforeRender(() => {
+    alpha += 0.05;
+    enemy.position.y = 1.5 + Math.sin(alpha) * 0.2;
+    enemy.rotation.y += 0.02;
+  });
+  
+  // On le stocke globalement pour le détecter
+  scene.enemyAlpha = enemy;
+}
+
+// ═════════════════════════════════════════════════════
+//  🧍  PERSONNAGE
+// ═════════════════════════════════════════════════════
+function buildPlayer(scene) {
+  // ── Corps physique (capsule invisible) ─────────────
+  const mesh          = BABYLON.MeshBuilder.CreateCapsule("playerPhys", {
+    height:          CFG.capHeight,
+    radius:          CFG.capRadius,
+    capSubdivisions: 6,
+    subdivisions:    1,
+  }, scene);
+  mesh.position.set(0, 2.0, -5);
+  mesh.isVisible      = false;
+  mesh.isPickable     = false;
+
+  const agg           = new BABYLON.PhysicsAggregate(
+    mesh,
+    BABYLON.PhysicsShapeType.CAPSULE,
+    { mass: CFG.playerMass, restitution: CFG.restitution, friction: CFG.friction },
+    scene,
+  );
+
+  // Bloquer toute rotation du corps physique
+  // → le capsule ne bascule jamais même sur les pentes
+  agg.body.setMassProperties({
+    inertia:            new BABYLON.Vector3(0, 0, 0),
+    inertiaOrientation: BABYLON.Quaternion.Identity(),
+  });
+  agg.body.setAngularDamping(500);
+
+  // ── Racine visuelle (détachée du corps physique) ───
+  const visual    = new BABYLON.TransformNode("playerVis", scene);
+
+  // Silhouette — capsule visuelle
+  const body      = BABYLON.MeshBuilder.CreateCapsule("playerBody", {
+    height: CFG.capHeight, radius: CFG.capRadius, capSubdivisions: 8, subdivisions: 1,
+  }, scene);
+  body.parent     = visual;
+  body.isPickable = false;
+  const mBody     = new BABYLON.StandardMaterial("mBody", scene);
+  mBody.diffuseColor  = P.bodyCol;
+  mBody.emissiveColor = P.bodyE;
+  mBody.specularColor = new BABYLON.Color3(0.28, 0.48, 0.88);
+  mBody.specularPower = 60;
+  body.material = mBody;
+
+  // Tête — sphère orange (couleur humaine, contraste avec le bleu ARIA)
+  const head      = BABYLON.MeshBuilder.CreateSphere("playerHead",
+    { diameter: 0.44, segments: 10 }, scene);
+  head.parent     = visual;
+  head.position.y = CFG.capHeight / 2 + 0.06;
+  head.isPickable = false;
+  const mHead     = new BABYLON.StandardMaterial("mHead", scene);
+  mHead.diffuseColor  = P.headCol;
+  mHead.emissiveColor = P.headE;
+  mHead.specularColor = new BABYLON.Color3(0.6, 0.35, 0.1);
+  head.material = mHead;
+
+  // Indicateur de direction (flèche cyan)
+  const dir       = BABYLON.MeshBuilder.CreateBox("playerDir",
+    { width: 0.11, height: 0.11, depth: 0.48 }, scene);
+  dir.parent      = visual;
+  dir.position.y  = CFG.capHeight / 2 + 0.06;
+  dir.position.z  = CFG.capRadius + 0.25;
+  dir.isPickable  = false;
+  const mDir      = new BABYLON.StandardMaterial("mDir", scene);
+  mDir.diffuseColor  = P.dirCol;
+  mDir.emissiveColor = P.dirE;
+  dir.material = mDir;
+
+  return { mesh, agg, visual };
+}
+
+// ═════════════════════════════════════════════════════
+//  📷  CAMÉRA 3ÈME PERSONNE
+// ═════════════════════════════════════════════════════
+function buildCamera(scene, canvas, playerMesh) {
+  const cam = new BABYLON.ArcRotateCamera("cam3P",
+    CFG.camAlpha, CFG.camBeta, CFG.camRadius,
+    playerMesh.position.clone(), scene);
+
+  cam.minZ                  = 0.1; // Évite de voir à travers le perso quand on est très proche
+  cam.maxZ                  = 400;
+  cam.lowerRadiusLimit      = CFG.camMinR;
+  cam.upperRadiusLimit      = CFG.camMaxR;
+  cam.lowerBetaLimit        = 0.10;
+  cam.upperBetaLimit        = Math.PI / 2.1;
+  cam.wheelDeltaPercentage  = 0.022;
+  
+  // Rend la caméra un poil plus lourde/cinématique sous la souris
+  cam.angularSensibilityX   = 3000; 
+  cam.angularSensibilityY   = 3000;
+  cam.panningSensibility    = 0;
+
+  // Initialise le FOV
+  cam.fov                   = CFG.camFovIdle;
+
+  cam.attachControl(canvas, true);
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+  return cam;
+}
+// ═════════════════════════════════════════════════════
+//  ⌨️  INPUTS
+// ═════════════════════════════════════════════════════
+function bindInput() {
+  window.addEventListener("keydown", e => {
+    G.keys[e.code] = true;
+    if (e.code === "Space") {
+      e.preventDefault();
+      G.jumpReq = true;
+    }
+  });
+  window.addEventListener("keyup", e => {
+    G.keys[e.code] = false;
+  });
+}
+
+// ═════════════════════════════════════════════════════
+//  🌍  DÉTECTION DU SOL (raycast)
+// ═════════════════════════════════════════════════════
+function groundCheck(scene, mesh) {
+  // Origine : juste au-dessus du bas du capsule
+  const origin = new BABYLON.Vector3(
+    mesh.position.x,
+    mesh.position.y - CFG.capHeight / 2 + 0.04,
+    mesh.position.z,
+  );
+  const ray = new BABYLON.Ray(origin, BABYLON.Vector3.Down(),
+    CFG.groundCheckDist + 0.12);
+
+  // On ignore tous les meshes appartenant au personnage
+  const hit = scene.pickWithRay(ray, (m) =>
+    m.isPickable && !m.name.startsWith("player"),
+  );
+  return !!(hit?.hit);
+}
+
+// ═════════════════════════════════════════════════════
+//  🔄  BOUCLE PRINCIPALE
+// ═════════════════════════════════════════════════════
+function loop(scene, player, camera, engine) {
+
+  // ── GESTION ÉTAT COMBAT ───────────────────────────
+  if (COMBAT.active) {
+    // Si on est en combat, on bloque la mise à jour des contrôles et de la caméra normale
+    return; 
+  }
+
+  // ── DÉTECTION ENNEMI (Lancement du combat) ────────
+  if (scene.enemyAlpha && !scene.enemyAlpha.isDisposed()) {
+    const dist = BABYLON.Vector3.Distance(player.mesh.position, scene.enemyAlpha.position);
+    if (dist < 3.0) { // Si le joueur s'approche à moins de 3 mètres
+      COMBAT.init(scene, camera, player, scene.enemyAlpha);
+      return;
+    }
+  }
+  const { mesh, agg, visual } = player;
+  const body = agg.body;
+  const vel  = body.getLinearVelocity();
+
+  // ── Forcer zéro vitesse angulaire chaque frame ────
+  // Garantit que le personnage ne bascule jamais
+  body.setAngularVelocity(BABYLON.Vector3.Zero());
+
+  // ── Détection sol ─────────────────────────────────
+  G.grounded = groundCheck(scene, mesh);
+
+  // ── Direction relative à la caméra ────────────────
+  // "Avant" = vecteur de la caméra vers le joueur, projeté sur XZ
+  const camFwd = BABYLON.Vector3.Normalize(new BABYLON.Vector3(
+    mesh.position.x - camera.position.x,
+    0,
+    mesh.position.z - camera.position.z,
+  ));
+  // "Droite" = perpendiculaire dans le plan horizontal
+  const camRight = BABYLON.Vector3.Normalize(
+    BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), camFwd),
+  );
+
+  // ── Lire les touches (ZQSD AZERTY = KeyW/KeyA/KeyS/KeyD sur e.code) ─
+  G.moveDir.setAll(0);
+  if (G.keys["KeyW"] || G.keys["ArrowUp"])    G.moveDir.addInPlace(camFwd);
+  if (G.keys["KeyS"] || G.keys["ArrowDown"])  G.moveDir.subtractInPlace(camFwd);
+  if (G.keys["KeyD"] || G.keys["ArrowRight"]) G.moveDir.addInPlace(camRight);
+  if (G.keys["KeyA"] || G.keys["ArrowLeft"])  G.moveDir.subtractInPlace(camRight);
+
+  const moving = G.moveDir.length() > 0.01;
+  if (moving) G.moveDir.normalize();
+
+  // ── Appliquer la vélocité horizontale ─────────────
+  // La composante Y (gravité/saut) est conservée telle quelle
+  body.setLinearVelocity(new BABYLON.Vector3(
+    G.moveDir.x * CFG.moveSpeed,
+    vel.y,
+    G.moveDir.z * CFG.moveSpeed,
+  ));
+
+  // ── Saut (autorisé uniquement si au sol) ──────────
+  if (G.jumpReq && G.grounded) {
+    body.setLinearVelocity(new BABYLON.Vector3(
+      G.moveDir.x * CFG.moveSpeed,
+      CFG.jumpVelocity,
+      G.moveDir.z * CFG.moveSpeed,
+    ));
+  }
+  G.jumpReq = false;
+
+  // ── Synchroniser le visuel sur le corps physique ──
+  visual.position.copyFrom(mesh.position);
+
+  // ── Rotation smooth du personnage vers le déplacement ─
+  if (moving) {
+    const target = Math.atan2(G.moveDir.x, G.moveDir.z);
+    let   diff   = target - G.facing;
+    while (diff >  Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    G.facing             += diff * CFG.rotLerp;
+    visual.rotation.y     = G.facing;
+  }
+
+  // ── Caméra suit le joueur avec lerp ───────────────
+  // On cible un peu plus haut (1.1 au lieu de 0.55) pour viser le haut du dos/épaules
+  const camTarget = mesh.position.add(new BABYLON.Vector3(0, 1.1, 0));
+  camera.target   = BABYLON.Vector3.Lerp(camera.target, camTarget, CFG.camLerp);
+
+  // ── Zoom dynamique et cinématique (FOV) ───────────
+  // Si le joueur bouge, on dézoome doucement. S'il s'arrête, on zoome doucement.
+  const targetFov = moving ? CFG.camFovMove : CFG.camFovIdle;
+  camera.fov = BABYLON.Scalar.Lerp(camera.fov, targetFov, CFG.camFovLerp);
+
+  // ── Mise à jour HUD ───────────────────────────────
+  const p   = mesh.position;
+  const spd = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+  document.getElementById("px").textContent  = p.x.toFixed(2);
+  document.getElementById("py").textContent  = p.y.toFixed(2);
+  document.getElementById("pz").textContent  = p.z.toFixed(2);
+  document.getElementById("sp").textContent  = spd.toFixed(2) + " m/s";
+  document.getElementById("fps").textContent = Math.round(engine.getFps());
+
+  const sv = document.getElementById("sv");
+  if (G.grounded) {
+    if (moving) { sv.textContent = "EN MOUVEMENT"; sv.className = "val grn"; }
+    else        { sv.textContent = "AU SOL";        sv.className = "val grn"; }
+  } else {
+    if (vel.y > 0.5) { sv.textContent = "SAUT ↑";    sv.className = "val org"; }
+    else             { sv.textContent = "CHUTE ↓";   sv.className = "val red"; }
+  }
+}
+
+// ═════════════════════════════════════════════════════
+//  ▶  DÉMARRAGE
+// ═════════════════════════════════════════════════════
+init();
+
+</script>
+</body>
+</html>
