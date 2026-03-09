@@ -1,0 +1,980 @@
+# Architecture IA — Système de Combat ELIOR
+## Modélisation OOP, IA Probabiliste & Contrôleur Symbolique
+> Basé sur le Cahier des Charges v1 — Cyber-RPG BabylonJS
+
+---
+
+## 1. Analyse de ta Vision — Ce que j'en Pense
+
+### ✅ Ce qui est excellent
+
+**OOP + JSON pour les monstres** — séparer les *données* (JSON) de la *logique* (classes JS)
+est la bonne approche. Ajouter un nouvel ennemi = créer un fichier JSON, sans toucher au code.
+C'est exactement le pattern que ton CDC anticipe avec `data/skills/*.json`.
+
+**IA commune + capacités spécifiques** — plutôt qu'une IA par monstre, tu as un cerveau
+généraliste (`EnemyBrain`) qui s'adapte aux données JSON de chaque entité. Maintenance divisée
+par 10, comportements cohérents entre ennemis.
+
+**Modèle probabiliste par niveau** — c'est ce qui rend un jeu lisible mais imprédictible.
+Déterministe = trop facile à lire. Purement aléatoire = frustrant. La distribution pondérée
+par niveau est la bonne solution, et elle correspond bien à la logique "tension, rythme,
+lecture claire" de ton pilier de design n°1.
+
+**Programmation par contraintes** — essentiel pour borner le comportement : "ne jamais
+répéter la même compétence deux tours de suite", "réserver des PA pour réagir si Elior
+charge", "passer en mode défensif sous 30% HP". Sans contraintes, une IA probabiliste peut
+produire des comportements absurdes même avec de bons scores.
+
+### ⚠️ Ce que j'ajouterais / modifierais
+
+**Le modèle d'échecs (Minimax)** — bonne inspiration, mais les échecs ont un arbre de jeu
+*symétrique et déterministe*. Dans ton RPG, les états sont plus flous (statuts, PA, jauges
+de rupture, phases). Je propose un **Minimax tronqué à profondeur 2** : l'IA projette son
+action + la meilleure réponse joueur probable. C'est suffisant et performant en JS.
+
+**La prédiction joueur** — pour que ça fonctionne, l'IA a besoin d'un buffer des N dernières
+actions d'Elior. Si Elior pare 70% du temps → l'IA favorise les attaques imparables (`Buffer
+Overflow` qui casse la garde). Si Elior spam `SQL Injection` → l'IA adapte ses résistances
+ou change de phase.
+
+**Niveau du boss ≠ seulement les probabilités** — le niveau doit aussi influencer :
+- la profondeur de prédiction (boss niv.5 = profondeur 3, niv.1 = profondeur 1)
+- la taille du buffer mémoire (boss niv.5 se souvient de 8 actions, niv.1 de 3)
+- le seuil de détection de pattern (boss niv.5 détecte une habitude à 55%, niv.1 à 80%)
+
+---
+
+## 2. Format JSON — Proposition Complète
+
+### 2.1 Fichier Ennemi (`/data/enemies/rootkit_alpha.json`)
+
+```json
+{
+  "id": "rootkit_alpha",
+  "name": "Rootkit Alpha",
+  "level": 3,
+  "archetype": "boss",
+  "description": "Architecture corrompue du secteur 7, reconvertie en entité défensive autonome.",
+
+  "stats": {
+    "hp": 1200,
+    "hp_max": 1200,
+    "pa": 6,
+    "pa_regen_per_turn": 3,
+    "atq": 95,
+    "def": 60,
+    "vit": 72,
+    "stability": 100,
+    "stability_max": 100
+  },
+
+  "type_tags": ["systeme", "stealth"],
+
+  "resistances": {
+    "reseau":      0.8,
+    "web":         0.9,
+    "systeme":     1.4,
+    "crypto":      0.9,
+    "ia":          0.7,
+    "brute_force": 0.3
+  },
+
+  "weakpoints": [
+    {
+      "id": "kernel_core",
+      "label": "Nœud Kernel",
+      "triggered_by": ["kernel_patch", "sandbox_isolation"],
+      "damage_multiplier": 1.8,
+      "exposed_after_break": true,
+      "visible_after_scan": true,
+      "stability_drain_bonus": 25
+    }
+  ],
+
+  "stability_damage_table": {
+    "kernel_patch":       35,
+    "sandbox_isolation":  25,
+    "sql_injection":      20,
+    "buffer_overflow":    15,
+    "ping_sweep":          5,
+    "prompt_poisoning":   30,
+    "rsa_crack":          20
+  },
+
+  "phases": [
+    {
+      "id": "phase_1",
+      "trigger_hp_percent": 100,
+      "label": "Mode Défensif",
+      "ability_pool": ["stealth_cloak", "spike_single", "purge_buff", "systemic_aoe"],
+      "behavior_weights": {
+        "aggressive":  0.35,
+        "defensive":   0.40,
+        "disruptive":  0.25
+      },
+      "stat_modifiers": {}
+    },
+    {
+      "id": "phase_2",
+      "trigger_hp_percent": 50,
+      "label": "Mode Offensif — INTÉGRITÉ CRITIQUE",
+      "ability_pool": ["stealth_cloak", "spike_single", "systemic_aoe", "kernel_overload", "mass_purge"],
+      "behavior_weights": {
+        "aggressive":  0.65,
+        "defensive":   0.15,
+        "disruptive":  0.20
+      },
+      "stat_modifiers": {
+        "vit_bonus": 18,
+        "atq_bonus": 25
+      },
+      "status_on_enter": ["partial_invisibility"]
+    }
+  ],
+
+  "reactions": {
+    "on_perfect_parry_received": "stealth_cloak",
+    "on_break":                  "null_action",
+    "on_ally_death":             "mass_purge",
+    "on_player_low_hp":          "spike_single",
+    "on_mira_scan":              "purge_buff"
+  },
+
+  "ai_config": {
+    "prediction_depth":                2,
+    "memory_buffer_size":              6,
+    "pattern_detection_threshold":     0.65,
+    "aggression_base":                 0.45,
+    "self_preservation_hp_threshold":  0.30,
+    "combo_repeat_penalty":            0.70,
+    "action_selector":                 "weighted_probabilistic",
+    "action_distribution_by_level": {
+      "1": [0.55, 0.30, 0.12, 0.03],
+      "2": [0.30, 0.60, 0.07, 0.03],
+      "3": [0.25, 0.45, 0.20, 0.10],
+      "4": [0.20, 0.40, 0.25, 0.15],
+      "5": [0.15, 0.35, 0.30, 0.20]
+    }
+  },
+
+  "constraints": [
+    { "rule": "no_repeat_same_skill",        "turns": 2 },
+    { "rule": "reserve_pa_for_reaction",     "pa_min": 2,   "when": "player_is_charging" },
+    { "rule": "go_defensive_if_hp_below",    "hp_percent": 0.30 },
+    { "rule": "use_aoe_if_multiple_alive",   "min_allies": 2 },
+    { "rule": "prioritize_break_if_close",   "stability_threshold": 20 }
+  ],
+
+  "telegraph": {
+    "spike_single":    { "duration_ms": 900,  "color": "#FF4444", "label": "EXÉCUTION" },
+    "systemic_aoe":    { "duration_ms": 1200, "color": "#FF8800", "label": "PURGE SYSTÈME" },
+    "kernel_overload": { "duration_ms": 1500, "color": "#CC00FF", "label": "SURCHARGE KERNEL" },
+    "stealth_cloak":   { "duration_ms": 600,  "color": "#4488FF", "label": "CAMOUFLAGE" }
+  },
+
+  "loot": {
+    "fragments": { "min": 40, "max": 80 },
+    "data_logs":    ["log_sector7", "log_origin"],
+    "module_drop":  { "id": "kernel_shard", "chance": 0.35 }
+  }
+}
+```
+
+### 2.2 Fichier Capacité Ennemi (`/data/enemies/abilities/systemic_aoe.json`)
+
+```json
+{
+  "id": "systemic_aoe",
+  "name": "Purge Système",
+  "type": "systeme",
+  "category": "aoe",
+  "pa_cost": 4,
+  "target": "all_allies",
+
+  "effects": [
+    { "type": "damage",       "formula": "atq * 0.75" },
+    { "type": "apply_status", "status": "vulnerable_systeme", "duration": 2 }
+  ],
+
+  "stability_damage": 0,
+  "interruptible": true,
+  "interrupt_window_ms": 800,
+  "telegraph_duration_ms": 1200,
+  "animation_id": "skill_aoe_cast",
+
+  "ai_usage_conditions": {
+    "min_pa": 4,
+    "prefer_when": ["multiple_enemies_alive", "player_hp_above_60"],
+    "avoid_when": ["already_debuffed_target"]
+  }
+}
+```
+
+### 2.3 Fichier Capacité Joueur (`/data/players/abilities/kernel_patch.json`)
+
+```json
+{
+  "id": "kernel_patch",
+  "name": "Kernel Patch",
+  "owner": "elior",
+  "type": "systeme",
+  "category": "debuff",
+  "pa_cost": 4,
+  "target": "single_enemy",
+
+  "effects": [
+    { "type": "apply_status",     "status": "vulnerable_systeme", "duration": 3 },
+    { "type": "def_reduction",    "value": 0.25,                  "duration": 3 },
+    { "type": "expose_weakpoint", "weakpoint_id": "kernel_core" }
+  ],
+
+  "stability_damage_to_target": 35,
+  "weakpoint_eligible": true,
+  "charge_exploit_gain": 2,
+
+  "ai_counter_weight": {
+    "stealth_cloak":    0.9,
+    "purge_buff":       0.8
+  }
+}
+```
+
+---
+
+## 3. Modélisation OOP
+
+### 3.1 Hiérarchie des Classes
+
+```
+Entity                    ← classe abstraite de base
+├── Enemy
+│   ├── EnemyElite        ← Firewall basique, Malware Trojan
+│   └── EnemyBoss
+│       └── BossMultiphase ← Rootkit Alpha, boss finaux
+├── PlayerCharacter       ← Elior
+├── AllyNPC               ← Mira
+└── Companion             ← BYTE (robot)
+```
+
+### 3.2 Classe `Entity` — Base Abstraite
+
+```javascript
+// entity.js
+class Entity {
+  constructor(data) {
+    this.id             = data.id;
+    this.name           = data.name;
+    this.baseStats      = structuredClone(data.stats);
+    this.stats          = structuredClone(data.stats);
+    this.statusEffects  = [];
+    this.actionHistory  = [];   // Buffer circulaire des actions passées
+  }
+
+  get isAlive()    { return this.stats.hp > 0; }
+  get hpPercent()  { return this.stats.hp / this.stats.hp_max; }
+
+  applyDamage(amount) {
+    this.stats.hp = Math.max(0, this.stats.hp - amount);
+  }
+
+  applyStatus(status) {
+    // Pas de doublon — rafraîchit la durée si déjà présent
+    const existing = this.statusEffects.find(s => s.id === status.id);
+    if (existing) existing.duration = Math.max(existing.duration, status.duration);
+    else this.statusEffects.push({ ...status });
+  }
+
+  hasStatus(id) {
+    return this.statusEffects.some(s => s.id === id);
+  }
+
+  tickStatuses() {
+    this.statusEffects = this.statusEffects
+      .map(s => ({ ...s, duration: s.duration - 1 }))
+      .filter(s => s.duration > 0);
+  }
+
+  // Buffer circulaire — garde les N dernières actions
+  logAction(actionId, bufferSize = 10) {
+    this.actionHistory.unshift(actionId);
+    if (this.actionHistory.length > bufferSize) {
+      this.actionHistory.pop();
+    }
+  }
+}
+```
+
+### 3.3 Classe `Enemy`
+
+```javascript
+// enemy.js
+class Enemy extends Entity {
+  constructor(data, abilityRegistry) {
+    super(data);
+
+    this.level          = data.level;
+    this.archetype      = data.archetype;
+    this.typeTags       = data.type_tags;
+    this.resistances    = { ...data.resistances };
+    this.weakpoints     = data.weakpoints.map(w => ({ ...w, isExposed: false }));
+    this.stabilityDmgTable = data.stability_damage_table;
+    this.phases         = data.phases;
+    this.currentPhase   = data.phases[0];
+    this.aiConfig       = data.ai_config;
+    this.constraints    = data.constraints;
+    this.reactions      = data.reactions;
+    this.telegraph      = data.telegraph;
+    this.isBroken       = false;
+
+    // Résolution des capacités depuis le registre global
+    this.abilities = this.resolveAbilities(this.currentPhase.ability_pool, abilityRegistry);
+
+    // Composants IA — découplés, injectables
+    this.brain    = new EnemyBrain(this);
+    this.selector = new ActionSelector(this);
+  }
+
+  // ── Résistances & Dégâts ─────────────────────────────
+  computeDamageReceived(rawDamage, atkType, targetWeakpointId = null) {
+    const resist = this.resistances[atkType] ?? 1.0;
+
+    let wpMult = 1.0;
+    if (targetWeakpointId) {
+      const wp = this.weakpoints.find(w => w.id === targetWeakpointId && w.isExposed);
+      if (wp) wpMult = wp.damage_multiplier;
+    }
+
+    // Statut "vulnerable_systeme" → -25% DEF
+    const defMult = this.hasStatus('vulnerable_systeme') ? 0.75 : 1.0;
+
+    return Math.round(rawDamage * resist * wpMult * defMult);
+  }
+
+  // ── Jauge de Stabilité (Break) ───────────────────────
+  applyStabilityDamage(abilityId) {
+    const base  = this.stabilityDmgTable[abilityId] ?? 0;
+    const bonus = this.weakpoints
+      .filter(w => w.isExposed && w.triggered_by.includes(abilityId))
+      .reduce((sum, w) => sum + (w.stability_drain_bonus ?? 0), 0);
+
+    this.stats.stability = Math.max(0, this.stats.stability - base - bonus);
+
+    if (this.stats.stability === 0 && !this.isBroken) this.triggerBreak();
+  }
+
+  triggerBreak() {
+    this.isBroken    = true;
+    this.stats.def   = Math.round(this.stats.def * 0.50);
+    this.stats.vit   = Math.round(this.stats.vit * 0.70);
+    EventBus.emit('enemy:break', { enemy: this });
+
+    // Fin du break après 1 tour
+    setTimeout(() => {
+      this.isBroken      = false;
+      this.stats.def     = this.baseStats.def;
+      this.stats.vit     = this.baseStats.vit;
+      this.stats.stability = this.baseStats.stability_max;
+    }, 3500);
+  }
+
+  // ── Transitions de Phase ─────────────────────────────
+  checkPhaseTransition() {
+    for (const phase of this.phases) {
+      if (
+        this.hpPercent * 100 <= phase.trigger_hp_percent &&
+        phase.id !== this.currentPhase.id
+      ) {
+        this.enterPhase(phase);
+        break;
+      }
+    }
+  }
+
+  enterPhase(phase) {
+    this.currentPhase = phase;
+    this.abilities    = this.resolveAbilities(phase.ability_pool, AbilityRegistry);
+
+    if (phase.stat_modifiers.vit_bonus) this.stats.vit += phase.stat_modifiers.vit_bonus;
+    if (phase.stat_modifiers.atq_bonus) this.stats.atq += phase.stat_modifiers.atq_bonus;
+    if (phase.status_on_enter) {
+      phase.status_on_enter.forEach(s => this.applyStatus({ id: s, duration: 999 }));
+    }
+
+    EventBus.emit('enemy:phase_change', { enemy: this, phase });
+  }
+
+  // ── Tour Ennemi ─────────────────────────────────────
+  decideTurn(gameState) {
+    // 1. Réactions prioritaires définies dans le JSON
+    const reaction = this.checkReactions(gameState);
+    if (reaction) return { action: reaction, source: 'reaction' };
+
+    // 2. Évaluation IA → ActionSelector
+    const candidates = this.brain.evaluate(gameState);
+    const chosen     = this.selector.pick(candidates);
+    return { action: chosen, source: 'brain' };
+  }
+
+  checkReactions(gameState) {
+    if (gameState.playerJustPerfectParried && this.reactions.on_perfect_parry_received) {
+      return this.abilities.find(a => a.id === this.reactions.on_perfect_parry_received);
+    }
+    if (this.isBroken && this.reactions.on_break) {
+      return null; // null_action = ne fait rien pendant le break
+    }
+    if (gameState.playerHPPercent < 0.25 && this.reactions.on_player_low_hp) {
+      return this.abilities.find(a => a.id === this.reactions.on_player_low_hp);
+    }
+    if (gameState.miraJustScanned && this.reactions.on_mira_scan) {
+      return this.abilities.find(a => a.id === this.reactions.on_mira_scan);
+    }
+    return null;
+  }
+
+  resolveAbilities(pool, registry) {
+    return pool.map(id => registry.get(id)).filter(Boolean);
+  }
+}
+```
+
+### 3.4 Factory — Instanciation depuis JSON
+
+```javascript
+// enemy-factory.js
+class EnemyFactory {
+  static async create(enemyId) {
+    const data = await fetch(`/data/enemies/${enemyId}.json`).then(r => r.json());
+
+    const klassByArchetype = {
+      basic:  EnemyElite,
+      elite:  EnemyElite,
+      boss:   EnemyBoss,
+    };
+    const Klass = klassByArchetype[data.archetype] ?? Enemy;
+    return new Klass(data, AbilityRegistry);
+  }
+}
+
+// Dans CombatSystem :
+const rootkit = await EnemyFactory.create('rootkit_alpha');
+const firewall = await EnemyFactory.create('firewall_basique');
+```
+
+---
+
+## 4. Architecture de l'IA — Les 3 Couches
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                 COUCHE 1 — EnemyBrain                   │
+│                                                         │
+│  • Modèle joueur : fréquence des actions d'Elior/Mira   │
+│  • Scoring : comportement + exploitation faiblesses     │
+│  • Minimax tronqué profondeur 2 (projection 2 tours)    │
+│  • Programmation par contraintes (filtrage dur)         │
+│                                                         │
+│  → Produit : liste triée [(action, score), ...]         │
+└────────────────────────┬────────────────────────────────┘
+                         │
+                         ▼ Top 4 actions scorées
+┌────────────────────────┴────────────────────────────────┐
+│               COUCHE 2 — ActionSelector                 │
+│                                                         │
+│  • Distribution probabiliste par niveau du boss         │
+│  • Tirage roulette wheel (weighted random)              │
+│  • Pénalité de répétition intégrée au tirage            │
+│                                                         │
+│  → Produit : 1 action choisie                           │
+└────────────────────────┬────────────────────────────────┘
+                         │
+                         ▼ 1 action finale
+┌────────────────────────┴────────────────────────────────┐
+│               COUCHE 3 — CombatSystem                   │
+│                                                         │
+│  • Lecture telegraphe depuis JSON                       │
+│  • Exécution animations + VFX                           │
+│  • Résolution dégâts / statuts                          │
+│  • Callback fenêtres de parade / contre                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. `EnemyBrain` — Implémentation Détaillée
+
+```javascript
+// enemy-brain.js
+class EnemyBrain {
+  constructor(enemy) {
+    this.enemy                = enemy;
+    this.playerActionHistory  = [];       // Actions récentes d'Elior + Mira
+    this.patternFrequency     = {};       // { 'parry': 0.7, 'sql_injection': 0.4 }
+    this.bufferSize           = enemy.aiConfig.memory_buffer_size;
+    this.predictionDepth      = enemy.aiConfig.prediction_depth;
+    this.patternThreshold     = enemy.aiConfig.pattern_detection_threshold;
+  }
+
+  // ── Point d'entrée ─────────────────────────────────
+  evaluate(gameState) {
+    // 1. Mettre à jour le modèle joueur
+    this.updatePlayerModel(gameState.lastPlayerActions);
+
+    // 2. Générer les actions techniquement faisables
+    const candidates = this.generateCandidates(gameState);
+
+    // 3. Filtrage dur par contraintes
+    const valid = this.applyConstraints(candidates, gameState);
+
+    // 4. Scorer chaque action valide
+    const scored = valid.map(action => ({
+      action,
+      score: this.scoreAction(action, gameState),
+    }));
+
+    // 5. Tri décroissant
+    return scored.sort((a, b) => b.score - a.score);
+  }
+
+  // ── Modèle Joueur — Détection de Patterns ──────────
+  updatePlayerModel(recentActions = []) {
+    // Intégrer les nouvelles actions dans le buffer
+    for (const a of recentActions) {
+      this.playerActionHistory.unshift(a);
+    }
+    // Limiter la taille du buffer
+    while (this.playerActionHistory.length > this.bufferSize) {
+      this.playerActionHistory.pop();
+    }
+
+    // Recalculer les fréquences normalisées
+    this.patternFrequency = {};
+    for (const a of this.playerActionHistory) {
+      this.patternFrequency[a] = (this.patternFrequency[a] ?? 0) + 1;
+    }
+    const total = this.playerActionHistory.length || 1;
+    for (const k in this.patternFrequency) {
+      this.patternFrequency[k] /= total;
+    }
+  }
+
+  // ── Génération des Candidats ────────────────────────
+  generateCandidates(gameState) {
+    return this.enemy.abilities.filter(ability => {
+      // Assez de PA ?
+      if (ability.pa_cost > this.enemy.stats.pa) return false;
+      // Conditions spécifiques à la capacité
+      return this.meetsAbilityConditions(ability, gameState);
+    });
+  }
+
+  meetsAbilityConditions(ability, gameState) {
+    const conds = ability.ai_usage_conditions ?? {};
+    if (conds.avoid_when) {
+      for (const cond of conds.avoid_when) {
+        if (cond === 'already_debuffed_target' && gameState.player.hasStatus('vulnerable_systeme')) {
+          return false;
+        }
+        if (cond === 'already_buffed_stealth' && this.enemy.hasStatus('partial_invisibility')) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  // ── Scoring Global ──────────────────────────────────
+  scoreAction(action, gameState) {
+    let score = 0;
+
+    // A. Score comportemental (agressif / défensif / disruptif)
+    score += this.getBehaviorScore(action);
+
+    // B. Contre-stratégie basée sur les patterns d'Elior et Mira
+    score += this.getCounterScore(action, gameState);
+
+    // C. Exploitation des points faibles exposés
+    score += this.getWeakpointScore(action, gameState);
+
+    // D. Projection Minimax (si niveau suffisant)
+    if (this.predictionDepth >= 2) {
+      const futureValue = this.minimaxEval(action, gameState, this.predictionDepth);
+      score += futureValue * 0.35; // pondération modérée pour ne pas masquer les autres
+    }
+
+    // E. Pénalité répétition
+    const recentUses = this.enemy.actionHistory
+      .slice(0, 3)
+      .filter(id => id === action.id).length;
+    score *= Math.pow(this.enemy.aiConfig.combo_repeat_penalty, recentUses);
+
+    // F. Mode survie si HP bas
+    if (this.enemy.hpPercent < this.enemy.aiConfig.self_preservation_hp_threshold) {
+      if (['buff_self', 'heal'].includes(action.category)) score *= 1.70;
+      if (action.category === 'attack')                     score *= 0.60;
+    }
+
+    // G. Bonus si la cible est en rupture exposée
+    if (this.enemy.isBroken) {
+      if (action.category === 'attack') score *= 0.10; // ne pas attaquer pendant son propre break
+    }
+
+    return Math.max(0, score);
+  }
+
+  // A — Comportement selon phase
+  getBehaviorScore(action) {
+    const weights = this.enemy.currentPhase.behavior_weights;
+    const categoryToBehavior = {
+      attack:         'aggressive',
+      aoe:            'aggressive',
+      buff_self:      'defensive',
+      heal:           'defensive',
+      debuff:         'disruptive',
+      counter_setup:  'defensive',
+    };
+    const behavior = categoryToBehavior[action.category] ?? 'aggressive';
+    return (weights[behavior] ?? 0) * 100;
+  }
+
+  // B — Contre-stratégie : exploiter les habitudes du joueur
+  getCounterScore(action, gameState) {
+    let bonus = 0;
+    const freq = this.patternFrequency;
+    const thr  = this.patternThreshold;
+
+    // Elior pare souvent → favoriser attaques imparables (Buffer Overflow casse la garde)
+    if ((freq['parry'] ?? 0) > thr) {
+      if (action.breaks_guard) bonus += 40;
+    }
+
+    // Elior spam Kernel Patch → anticipation défensive de Rootkit
+    if ((freq['kernel_patch'] ?? 0) > thr) {
+      if (action.id === 'purge_buff') bonus += 35;
+      if (action.id === 'stealth_cloak') bonus += 25;
+    }
+
+    // Mira utilise souvent Deep Scan → purger les marques
+    if ((freq['deep_scan'] ?? 0) > thr) {
+      if (action.id === 'purge_buff') bonus += 30;
+    }
+
+    // Elior charge une grosse compétence → interrompre
+    if (gameState.playerIsCharging) {
+      if (action.interruptive) bonus += 55;
+    }
+
+    // Elior a les HP bas → finir
+    if (gameState.playerHPPercent < 0.30) {
+      if (action.category === 'attack') bonus += 45;
+    }
+
+    // BYTE vient de booster un allié → dissiper
+    if (gameState.byteJustBuffed) {
+      if (action.effects?.some(e => e.type === 'dispel')) bonus += 30;
+    }
+
+    return bonus;
+  }
+
+  // C — Exploitation des points faibles
+  getWeakpointScore(action, gameState) {
+    const exposed = this.enemy.weakpoints.filter(w => w.isExposed);
+    for (const wp of exposed) {
+      if (action.category === 'attack') {
+        // L'ennemi ne s'auto-attaque pas → bonus pour guider la lecture
+        // (utile pour que l'ennemi attaque le bon personnage vulnérable)
+        return 0; // les weakpoints comptent pour le joueur, pas l'ennemi sur lui-même
+      }
+    }
+    // Score pour les actions qui exposent de nouveaux weakpoints (manipulation d'état)
+    if (action.id === 'systemic_aoe' && !gameState.player.hasStatus('vulnerable_systeme')) {
+      return 20; // rend le joueur plus vulnérable ensuite
+    }
+    return 0;
+  }
+
+  // D — Minimax tronqué (profondeur 2)
+  minimaxEval(action, gameState, depth) {
+    if (depth === 0) return this.heuristicEval(gameState);
+
+    // Simuler l'effet de l'action sur l'état
+    const simState = this.simulateEnemyAction(action, gameState);
+
+    // Prédire la meilleure réponse d'Elior (ou de Mira)
+    const playerResponse   = this.predictBestPlayerResponse(simState);
+    const afterPlayerState = this.simulatePlayerAction(playerResponse, simState);
+
+    // Récursion (depth - 1)
+    return this.heuristicEval(afterPlayerState);
+  }
+
+  // Heuristique d'évaluation de position
+  heuristicEval(state) {
+    // Différence de HP normalisée + avantage de statuts
+    const enemyHP    =  state.enemy.hpPercent * 70;
+    const playerHP   = -state.player.hpPercent * 70;
+    const statusAdv  =  state.enemy.statusEffects.length * 5
+                      - state.player.statusEffects.length * 8;
+    const breakBonus =  state.enemy.isBroken ? -30 : 0; // le break pénalise l'ennemi
+    return enemyHP + playerHP + statusAdv + breakBonus;
+  }
+
+  predictBestPlayerResponse(state) {
+    // Modèle simplifié : le joueur utilise son action la plus fréquente,
+    // pondérée par la situation (HP bas → attaque lourde)
+    if (state.player.hpPercent < 0.30) return 'zero_day'; // desperado
+    if (state.player.hpPercent > 0.70) return 'kernel_patch'; // optimal quand safe
+
+    const sorted = Object.entries(this.patternFrequency)
+      .sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0] ?? 'ping_sweep';
+  }
+
+  simulateEnemyAction(action, gameState) {
+    const playerDmg = action.category === 'attack'
+      ? Math.round(this.enemy.stats.atq * 0.8)
+      : 0;
+    return {
+      ...gameState,
+      player: {
+        ...gameState.player,
+        hp: Math.max(0, gameState.player.hp - playerDmg),
+        hpPercent: Math.max(0, gameState.player.hpPercent - playerDmg / gameState.player.hp_max),
+      },
+    };
+  }
+
+  simulatePlayerAction(actionId, gameState) {
+    const dmgTable = {
+      zero_day:       220,
+      buffer_overflow: 180,
+      sql_injection:   150,
+      kernel_patch:     80,
+      ping_sweep:       45,
+    };
+    const dmg = dmgTable[actionId] ?? 60;
+    return {
+      ...gameState,
+      enemy: {
+        ...gameState.enemy,
+        hp:       Math.max(0, gameState.enemy.hp - dmg),
+        hpPercent: Math.max(0, gameState.enemy.hpPercent - dmg / gameState.enemy.hp_max),
+      },
+    };
+  }
+
+  // ── Contraintes (filtrage dur) ───────────────────────
+  applyConstraints(candidates, gameState) {
+    return candidates.filter(action =>
+      this.enemy.constraints.every(c => this.constraintPasses(c, action, gameState))
+    );
+  }
+
+  constraintPasses(constraint, action, gameState) {
+    switch (constraint.rule) {
+
+      case 'no_repeat_same_skill': {
+        const recent = this.enemy.actionHistory.slice(0, constraint.turns);
+        return !recent.includes(action.id);
+      }
+
+      case 'reserve_pa_for_reaction': {
+        if (!gameState.playerIsCharging) return true;
+        const remaining = this.enemy.stats.pa - action.pa_cost;
+        return remaining >= constraint.pa_min;
+      }
+
+      case 'go_defensive_if_hp_below': {
+        if (this.enemy.hpPercent > constraint.hp_percent) return true;
+        return ['buff_self', 'heal', 'defensive'].includes(action.category);
+      }
+
+      case 'use_aoe_if_multiple_alive': {
+        if (action.category !== 'aoe') return true;
+        return (gameState.aliveAllies ?? 0) >= constraint.min_allies;
+      }
+
+      case 'prioritize_break_if_close': {
+        // Pas un filtre dur — géré dans le scoring via getBehaviorScore
+        return true;
+      }
+
+      default:
+        return true;
+    }
+  }
+}
+```
+
+---
+
+## 6. `ActionSelector` — Le Contrôleur Symbolique
+
+```javascript
+// action-selector.js
+class ActionSelector {
+  constructor(enemy) {
+    this.enemy = enemy;
+  }
+
+  /**
+   * Tirage roulette wheel parmi les top N candidats.
+   * Distribution définie dans le JSON selon le niveau du boss.
+   *
+   * Niveau 1 : [55%, 30%, 12%, 3%]  → prévisible (ennemi basique)
+   * Niveau 2 : [30%, 60%,  7%, 3%]  → sous-optimal (donne l'impression d'apprendre)
+   * Niveau 3 : [25%, 45%, 20%, 10%] → équilibré (élite)
+   * Niveau 4 : [20%, 40%, 25%, 15%] → imprévisible (boss)
+   * Niveau 5 : [15%, 35%, 30%, 20%] → très imprévisible (boss final)
+   */
+  pick(rankedCandidates) {
+    if (rankedCandidates.length === 0) return null;
+
+    const level = String(this.enemy.level);
+    const dist  = this.enemy.aiConfig.action_distribution_by_level[level]
+               ?? [0.40, 0.35, 0.15, 0.10];
+
+    // Limiter aux candidats disponibles
+    const slots      = Math.min(rankedCandidates.length, dist.length);
+    const weights    = dist.slice(0, slots);
+    const total      = weights.reduce((s, w) => s + w, 0);
+    const normalized = weights.map(w => w / total);
+
+    // Tirage
+    const roll = Math.random();
+    let cumul  = 0;
+    for (let i = 0; i < slots; i++) {
+      cumul += normalized[i];
+      if (roll < cumul) {
+        return rankedCandidates[i].action;
+      }
+    }
+    return rankedCandidates[0].action; // fallback
+  }
+}
+```
+
+---
+
+## 7. Distribution par Niveau — Lecture
+
+| Niveau | 1ère action (meilleure) | 2ème | 3ème | 4ème | Profil |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 — Firewall basique | 55% | 30% | 12% | 3% | **Prévisible** — facile à lire |
+| 2 — Malware Trojan | 30% | **60%** | 7% | 3% | **Sous-optimal** — en apprentissage |
+| 3 — Rootkit Alpha | 25% | 45% | 20% | 10% | **Équilibré** — lit le joueur |
+| 4 — Boss | 20% | 40% | 25% | 15% | **Difficile** — imprévisible |
+| 5 — Boss final | 15% | 35% | 30% | 20% | **Très difficile** — distribution plate |
+
+> **Pourquoi le niveau 2 favorise le rang 2 à 60% ?** C'est voulu — l'ennemi fait
+> "presque" la meilleure chose, ce qui lui donne une impression de maladresse intelligente.
+> C'est la signature d'un ennemi en apprentissage, coherent avec le lore du Malware Trojan.
+
+---
+
+## 8. GameState — Structure Partagée
+
+```javascript
+// Structure passée à brain.evaluate() à chaque tour ennemi
+const gameState = {
+  // Entités
+  enemy:           enemyInstance,     // Enemy courant
+  player:          eliorInstance,     // PlayerCharacter
+  allies:          [miraInstance],    // AllyNPC[]
+  companion:       byteInstance,      // Companion
+
+  // Situation joueur
+  lastPlayerActions:       ['kernel_patch', 'parry', 'ping_sweep'],
+  playerIsCharging:        false,      // Elior prépare un Zero-Day
+  playerJustPerfectParried: false,     // Déclenche réaction JSON
+  playerHPPercent:          0.65,
+  playerPARemaining:        3,
+  playerChargeExploit:      7,         // Jauge Charge d'Exploit d'Elior
+
+  // Situation Mira
+  miraJustScanned:          false,     // Deep Scan joué ce tour
+  miraTokens:               2,
+
+  // Situation BYTE
+  byteJustBuffed:           false,     // Signal Relay joué ce tour
+
+  // Combat
+  turnNumber:               4,
+  aliveAllies:              2,         // Elior + Mira
+  breakPossible:            true,      // Stabilité ennemi < 20%
+  activeStatuses: {
+    enemy:  ['partial_invisibility'],
+    player: ['corruption'],
+    mira:   [],
+  },
+};
+```
+
+---
+
+## 9. Intégration dans `CombatSystem`
+
+```javascript
+// combat-system.js — Tour ennemi
+async runEnemyTurn(enemy, gameState) {
+
+  // 1. Tick des statuts (durée -1)
+  enemy.tickStatuses();
+
+  // 2. Vérifier transition de phase
+  enemy.checkPhaseTransition();
+
+  // 3. Régénération PA
+  enemy.stats.pa = Math.min(
+    enemy.baseStats.pa,
+    enemy.stats.pa + enemy.baseStats.pa_regen_per_turn
+  );
+
+  // 4. Décision IA
+  const { action, source } = enemy.decideTurn(gameState);
+
+  if (!action) {
+    EventBus.emit('combat:log', `${enemy.name} hésite...`);
+    return;
+  }
+
+  // 5. Annoncer le telegraphe (fenêtre de parade/esquive pour Elior)
+  const tele = enemy.telegraph[action.id];
+  if (tele) {
+    await this.showTelegraph(tele);       // affiche l'indicateur au joueur
+    await this.waitForPlayerReaction(tele.duration_ms);
+  }
+
+  // 6. Logger l'action
+  enemy.logAction(action.id, enemy.aiConfig.memory_buffer_size);
+  enemy.stats.pa -= action.pa_cost;
+
+  // 7. Résolution
+  await this.executeEnemyAbility(enemy, action, gameState);
+
+  // 8. Mettre à jour la jauge de stabilité (si Elior a réagi)
+  if (gameState.playerReactionResult === 'perfect_parry') {
+    EventBus.emit('combat:perfect_parry', { enemy });
+  }
+}
+```
+
+---
+
+## 10. Plan de Développement — Ordre Recommandé
+
+| Étape | Ce qu'on code | Durée estimée |
+|:---:|---|:---:|
+| 1 | `Entity`, `Enemy`, `EnemyFactory` + chargement JSON | 1-2 jours |
+| 2 | `EnemyBrain` sans Minimax (scoring simple) + `ActionSelector` | 2-3 jours |
+| 3 | Intégration dans `CombatSystem` existant, test avec Firewall basique | 1-2 jours |
+| 4 | Buffer d'actions joueur dans `PlayerCharacter` → `gameState.lastPlayerActions` | 1 jour |
+| 5 | Minimax tronqué profondeur 2 | 1-2 jours |
+| 6 | Contraintes JSON + réactions automatiques | 1 jour |
+| 7 | Rootkit Alpha complet avec phases + telegraphes | 2-3 jours |
+| 8 | Debug mode : afficher les 4 candidats et scores en console | 0.5 jour |
+
+> **Règle d'or** : coder et tester `EnemyBrain` + `ActionSelector` en Node.js pur
+> avec des états mockés *avant* de l'intégrer à BabylonJS. Les bugs IA sont
+> beaucoup plus faciles à corriger en dehors du moteur 3D.

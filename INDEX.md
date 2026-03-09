@@ -9,6 +9,14 @@
 
 ## 📚 Documentation par Usage
 
+### Je veux le cahier des charges gameplay
+1. Lire: [CAHIER_DES_CHARGES_ELIOR.md](CAHIER_DES_CHARGES_ELIOR.md)
+2. Utiliser: Vision gameplay, animations, Elior, Mira, robot compagnon, BabylonJS
+
+### Je veux l'architecture IA de combat
+1. Lire: [AI_ARCHITECTURE_COMBAT.md](AI_ARCHITECTURE_COMBAT.md)
+2. Utiliser: Pipeline 3 couches, OOP Entity/Skill, JSON data-driven, combos, prediction
+
 ### Je suis un Joueur
 1. Lire: [QUICK_START.md](QUICK_START.md)
 2. Ouvrir: `game3d.html`
