@@ -1,0 +1,502 @@
+# Unité 2: Video Streaming
+
+## Table des matières
+1. Vue d'ensemble du video streaming basé sur HTTP
+2. Qualité d'Expérience (QoE)
+3. HTTP Adaptive Streaming (HAS)
+4. Options de transport avancées
+5. Conclusion
+
+---
+
+## 1. Vue d'ensemble du video streaming basé sur HTTP
+
+### 1.1 Les bases
+
+#### Qu'est-ce que le streaming?
+
+Le **streaming** est un concept fondamental en transmission de médias. Il s'agit de transmettre un contenu multimédia depuis une source vers un client. Le point clé du streaming est que:
+
+- La lecture du contenu commence **avant** que toutes les données aient été reçues
+- Il existe une **contrainte de temps**: les données à transmettre doivent arriver à temps pour la lecture
+
+**Définitions importantes:**
+- **Débit vidéo** = **Bitrate**: Le débit auquel la vidéo a été codée lors de la lecture
+- **Bande passante** = **Débit de téléchargement** = **Débit d'envoi**: Le débit de données réellement atteint entre la source et la destination
+
+Le défi principal est de **faire correspondre le débit vidéo avec la bande passante disponible**, qui peut être variable et imprévisible.
+
+#### Types d'applications de video streaming
+
+Il existe trois catégories principales:
+
+1. **Vidéo en direct et interactive**
+   - Vidéoconférence, visiophonie
+   - Faible tolérance aux délais
+
+2. **Vidéo en direct non interactive**
+   - Cours, actualités, événements sportifs, conférences
+   - Tolérance modérée aux délais
+
+3. **Vidéo stockée non interactive**
+   - Films, enseignement à distance, vidéos web (YouTube, Netflix)
+   - Bonne tolérance aux délais
+   - **Focus principal de ce cours**
+
+#### Contraintes QoS (Qualité de Service)
+
+Internet offre un service de **meilleur effort** (best-effort), ce qui signifie:
+
+- **Pas de garanties sur la bande passante**:
+  - La bande passante ne peut pas être réservée sur Internet
+  - La bande passante disponible est dynamique
+  - Si on envoie plus vite que la bande passante disponible: congestion, perte de paquets, dégradation de la qualité
+  - Si on envoie plus lentement: sous-utilisation de la bande passante disponible
+
+- **Pas de garanties sur les taux de perte** ou la **gigue de délai**
+
+- Ces caractéristiques sont **inconnues et dynamiques**
+
+**Objectif**: Concevoir un système pour livrer de manière fiable une vidéo de haute qualité sur Internet.
+
+#### Le tampon de lecture (Playout buffer)
+
+Le tampon de lecture est le mécanisme clé pour compenser les variations de bande passante, la gigue de délai et permettre la retransmission des paquets perdus.
+
+**Fonctionnement:**
+- Un décalage de temps est ajouté au moment de lecture de chaque paquet
+- Si (délai du paquet < décalage): OK, le paquet est mis en mémoire tampon
+- Si (délai du paquet > décalage): Problème, la lecture s'interrompt
+
+**Paramètres typiques:**
+Le tampon de lecture représente généralement 30 secondes à plusieurs minutes de lecture vidéo.
+
+### 1.2 Historique du streaming vidéo
+
+#### L'ère du streaming par datagramme (UDP/RTP)
+
+Historiquement, le consensus académique était que le streaming vidéo en temps réel sur un réseau de type Internet (best-effort) devait utiliser:
+
+- Un **protocole de datagramme**: Offrant le contrôle au niveau des paquets
+- Typiquement **UDP**, pas TCP
+- Protocoles: **RTP** (Real-time Transport Protocol) sur UDP
+- Signalisation: **RTSP** (Real Time Streaming Protocol) et **SIP** (Session Initiation Protocol)
+
+**Avantages du RTP:**
+- Contrôle total sur la retransmission des paquets
+- Possibilité d'échanger la perte de paquets contre le délai
+- Adapté à la communication audio/vidéo en temps réel
+
+**Problèmes du RTP:**
+- **Nouveaux codecs**: Difficilement supportés sans signalisation out-of-band
+- **Implémentation complexe**: Gestion du contrôle de flux, du contrôle de congestion, des pertes de paquets, des livraisons désordonnées
+- **Pare-feu**: UDP bloqué par de nombreux pare-feu et routeurs NAT
+- **CDN**: Nécessite des solutions spécialisées (coûteuses)
+
+#### Migration vers le streaming HTTP
+
+L'industrie a progressivement adopté le **progressive download streaming sur HTTP**:
+
+**Raison principale:**
+La solution aux problèmes du RTP est venue avec la généralisation du streaming HTTP via:
+- Utilisation de l'infrastructure web existante (tous les CDN le supportent)
+- Traversée automatique des pare-feu
+- Avantage compétitif: Tous les CDN modernes optimisent HTTP
+- Simplicité: Utilise le même protocole que le web
+
+**Définition du progressive download:**
+Le client télécharge simplement le contenu comme un fichier normal dans un conteneur médias (MP4), tout en le lisant simultanément.
+
+**Avantages:**
+- Traversée des pare-feu
+- Tous les CDN supportent HTTP et la mise en cache
+
+**Inconvénients:**
+- Les interruptions de lecture sont plus probables
+- Un tampon plus grand est requis
+- Multicast n'est pas possible (moins grave aujourd'hui)
+
+**Conclusion:**
+Les arguments en faveur des protocoles de datagramme pour le streaming non-interactif sont maintenant largement **non pertinents**.
+
+---
+
+## 2. Qualité d'Expérience (QoE) pour le Video Streaming
+
+### 2.1 Métriques QoS vs QoE
+
+#### Définitions
+
+Historiquement, la qualité des réseaux était mesurée via des métriques **QoS (Qualité de Service)**:
+- Débit (throughput)
+- Délai (delay)
+- Gigue (jitter)
+
+Ces métriques sont **faciles à mesurer** mais ne reflètent pas vraiment l'expérience utilisateur.
+
+**QoE (Qualité d'Expérience)** selon le Video Quality Expert Group (VQEG):
+
+> "La QoE est le degré de satisfaction ou d'insatisfaction de l'utilisateur d'une application ou d'un service"
+
+**Caractéristiques importantes:**
+- **Subjective**: Dépend de la perception humaine
+- **Complexe**: Fonction non-linéaire des métriques QoS
+- **Multi-factorielle**: Plusieurs dimensions influencent la QoE
+
+#### Facteurs clés de la QoE vidéo
+
+La QoE pour le video streaming peut être modélisée comme une **somme pondérée** des facteurs suivants:
+
+```
+QoE = Qualité vidéo + Changements de qualité + Rebuffering + Délai initial
+```
+
+**1. Qualité vidéo:**
+- Basée sur la résolution, la fréquence d'images, le débit de codage
+- Métriques objectives: PSNR (Peak Signal-to-Noise Ratio), VQM
+- Métriques subjectives: MOS (Mean Opinion Score)
+
+**2. Variations de qualité:**
+- Fréquence et amplitude des changements de débit (pour le streaming adaptatif)
+- Plus les changements sont fréquents, plus la QoE se dégrade
+
+**3. Événements de rebuffering:**
+- Si le tampon se vide, la lecture s'interrompt ("rebuffering")
+- **C'est le facteur le plus important** pour l'abandon de visionnage
+- Occurrence lorsque: débit de téléchargement < débit de codage pendant trop longtemps
+
+**4. Délai initial (startup delay):**
+- Temps avant le début de la lecture après avoir cliqué sur play
+- Moins critique que le rebuffering pour la rétention d'audience
+
+#### Parties prenantes et responsabilités
+
+Plusieurs acteurs influencent la QoE:
+
+- **FAI (Fournisseur d'accès)**: Celui que les clients blâment généralement
+- **Fournisseur de service vidéo**: Netflix, YouTube, etc.
+- **Opérateur CDN**: Akamai, Limelight, Level 3, etc.
+- **Client**: L'utilisateur final (le plus important)
+- **Fabricant de dispositif**: Performance matérielle
+- **Logiciel client**: OS et lecteur vidéo
+
+La QoE est le **résultat conjoint** du comportement de tous ces acteurs.
+
+---
+
+## 3. HTTP Adaptive Streaming (HAS)
+
+### 3.1 Motivation et principes
+
+#### Motivation
+
+Le problème principal du streaming HTTP est que **la bande passante disponible fluctue**.
+
+**Idée centrale:** Adapter le débit demandé de la vidéo aux ressources réseau (possiblement variables).
+
+**Contextes critiques:**
+- Réseaux mobiles (4G/5G) avec bande passante limitée
+- Réseaux câblés partagés (HFC, DSL backhaul)
+- Contenu 4K exacerbant les problèmes de bande passante
+
+**Ressources disponibles:**
+- Principalement: **Bande passante réseau**
+- Secondairement: Charge CPU, capacité batterie, taille d'écran
+
+**Adaptation:**
+- Réalisée côté **client** (le plus populaire)
+- Information pertinente disponible au client
+- Pas besoin d'uniformité entre clients
+
+#### Résultat clé
+
+**HAS résout le problème le plus significatif du streaming HTTP: la fluctuation de bande passante**
+
+La capacité à passer **sans rupture à un flux de débit inférieur** lorsque la bande passante ou le tampon devient critique rend HTTP beaucoup plus utilisable pour le streaming vidéo, notamment sur appareils mobiles.
+
+**Conclusion:** HAS est destiné à se généraliser.
+
+### 3.2 Principes fondamentaux du HAS
+
+#### Structure de base
+
+- Une vidéo est divisée en **segments** de 2 à 10 secondes chacun
+- Au lieu d'un seul téléchargement de fichier, chaque segment est téléchargé individuellement
+- Chaque segment est disponible en **plusieurs débits** (différents niveaux de qualité)
+- Le changement de qualité ne peut survenir qu'aux **limites des segments**
+
+**Variantes de HAS:**
+- MPEG-DASH
+- HLS (HTTP Live Streaming) - Apple
+- Microsoft Smooth Streaming
+- Adobe HDS
+
+#### Fichier manifeste
+
+**Définition:**
+Pour réduire la complexité, un **fichier manifeste** décrit la structure complète du flux.
+
+**Contenu du manifeste:**
+- Informations générales: durée totale, informations de chiffrement, VOD vs Live
+- Types de flux disponibles: vidéo, audio, sous-titres
+- URLs de chaque segment avec durées et temps de début
+- Niveaux de qualité disponibles pour chaque flux
+
+**Avantage:**
+Le lecteur multimédia n'a besoin que de l'URL du manifeste pour:
+1. Télécharger et parser le manifeste
+2. Connaître toutes les URLs des segments
+3. Commencer à lire
+
+#### Flux de travail du HAS
+
+1. Client: Télécharge le manifeste (e.g., GET /vid/index.m3u8)
+2. Manifeste contient: structure, qualités, URLs
+3. Client: Décide de la qualité à partir de:
+   - Bande passante mesurée précédemment
+   - État actuel du tampon
+   - Autres critères (CPU, batterie, écran)
+4. Client: Télécharge segments individuellement
+   - GET /vid/segment_1_250kbps.ts
+   - GET /vid/segment_2_250kbps.ts
+   - etc.
+5. Client: Adaptation dynamique du débit à chaque nouveau segment
+
+#### Politiques d'adaptation du débit
+
+Il existe trois approches principales pour choisir le débit:
+
+**1. Rate-Based (RB):**
+- Sélectionne la qualité la plus haute possible
+- Basée sur la vitesse mesurée du téléchargement précédent
+- Simple mais peut être instable
+
+**2. Buffer-Based (BB):**
+- Monitore le niveau du tampon avec différents seuils
+- Plus le tampon est rempli, plus haute la qualité
+- La qualité monte/descend un niveau à la fois
+- Utilisé par Netflix
+
+**3. Buffer and Rate-Based (BRB):**
+- Combinaison des deux approches
+- Basée sur RB mais pondérée par l'état du tampon
+- Si le tampon se vide, la vitesse mesurée est considérée comme inférieure
+
+### 3.3 Performances du HAS
+
+#### Défis et problèmes
+
+**1. Interférence TCP-HAS:**
+
+Le HAS crée une **double boucle de contrôle** qui peut être instable.
+
+- **Boucle TCP**: Slow Start, congestion window, retransmission
+- **Boucle HAS**: Adaptation du débit basée sur la bande passante mesurée
+
+Différence clé:
+- **Flux TCP longs** (FTP): Utilisent Fast Retransmit/Fast Recovery
+  - Pas de réductions dramatiques de cwnd
+  - Perte de paquets peu critique
+
+- **Flux TCP courts** (HAS): Modèle On-Off (requêtes HTTP toutes les quelques secondes)
+  - Slow Start très utilisé (début/fin de chaque segment)
+  - Énormes réductions de cwnd très souvent
+  - Perte de paquets très critique
+
+**Résultat:** Le ratio qualité/débit pour HAS est plus mauvais que pour FTP, dépendant fortement du RTT.
+
+**2. Oscillations de qualité:**
+
+Lorsque plusieurs clients partagent la bande passante:
+- Les clients peuvent osciller entre les niveaux de qualité
+- Inefficacité: Sous-utilisation de la bande passante
+- Injustice: Certains clients obtiennent mieux que d'autres
+
+#### Solutions
+
+**Politiques Buffer-Based (Netflix):**
+- Plus stables que Rate-Based
+- Moins d'oscillations de qualité
+- Meilleure utilisation de la bande passante
+
+---
+
+## 4. Options de Transport Avancées
+
+### 4.1 HTTP/2
+
+#### Motivation
+
+Les sites web modernes nécessitent un nombre important de requêtes pour se charger (HTML, CSS, JavaScript, images).
+
+**Problèmes avec HTTP/1.1:**
+- HTTP/1.0: Une seule requête à la fois
+- HTTP/1.1: Pipelining synchrone avec "head-of-line blocking"
+
+**Head-of-line blocking dans HTTP/1.1:**
+- Le client doit attendre les résultats de certaines requêtes avant de faire les suivantes
+- Le serveur doit envoyer les réponses dans le même ordre que les requêtes
+- Connexion FIFO (First-In, First-Out)
+
+#### Solutions apportées par HTTP/2
+
+**1. Multiplexage asynchrone:**
+- Élimine le problème de head-of-line blocking
+- Le navigateur peut indiquer les priorités des objets
+- Le serveur peut envoyer les réponses dans un ordre différent, respectant les priorités
+- Site web se charge beaucoup plus rapidement
+
+**2. Compression des en-têtes:**
+- HTTP/1.1: Les en-têtes doivent être fournis pour chaque objet
+- HTTP/2: Tous les en-têtes peuvent être envoyés en une seule connexion avec compression
+- Au lieu de 100 aller-retours (100 requêtes), cela peut se faire en un seul aller-retour
+
+**3. Server Push:**
+- Le serveur peut envoyer des ressources que le client n'a pas encore demandées
+- Avantage majeur sur connexions haute latence
+- Supprime potentiellement plusieurs RTTs
+- Exemple: Quand le serveur reçoit index.html, il peut aussi envoyer styles.css et script.js
+
+**4. Chiffrement obligatoire:**
+- Bien qu'officiellement optionnel, les navigateurs principaux (Firefox, Chrome) implémentent HTTP/2 uniquement sur TLS
+- Améliore la sécurité
+
+### 4.2 HTTP/3 et QUIC
+
+#### Motivation
+
+**Problème avec TCP:**
+- Handshake 3-way: Requiert plusieurs aller-retours à chaque nouvelle connexion
+- Négociation TLS: Encore plus de paquets
+- Pour une requête simple: plusieurs RTTs avant de pouvoir commencer
+
+**Avantages du UDP:**
+- "Fire and forget": Un message est envoyé
+- Moins de temps passé à valider les paquets
+- Inconvénient: Pas de fiabilité native
+
+#### Qu'est-ce que QUIC?
+
+**QUIC (Quick UDP Internet Connections):**
+- Protocole de transport complètement nouveau
+- Basé sur UDP au lieu de TCP
+- Combine la vitesse d'UDP avec la fiabilité de TCP
+- Développé par Google
+- Déployé sur tous les services Google (Desktop et Android Chrome)
+- Utilise le port UDP 443
+
+**Innovation clé:**
+QUIC peut établir une connexion et négocier tous les paramètres TLS en **1, 2 ou 3 paquets**, comparé aux nombreux paquets nécessaires pour TCP+TLS.
+
+#### Architecture de QUIC
+
+**Remplacement de couches:**
+- **Couche transport TCP**: Remplacée par UDP
+- **Couche sécurité TLS**: QUIC implémente sa propre crypto-couche
+- **Couche application**: HTTP/2 API réduite (multiplexage déjà géré par QUIC)
+
+**Avantages de cette architecture:**
+- La multiplexation et la gestion de connexion sont gérées par QUIC
+- Pas de head-of-line blocking TCP
+- Connexion plus rapide à établir
+
+#### Résolution du head-of-line blocking
+
+**Problème avec HTTP/2 sur TCP:**
+- Une seule connexion TCP
+- Si un paquet est perdu, TCP attend la retransmission
+- Les autres ressources sont bloquées (head-of-line blocking)
+
+**Solution avec QUIC:**
+- UDP n'est pas dépendant de l'ordre des paquets
+- Paquets perdus n'affectent qu'une seule ressource
+- Les autres ressources continuent sans interruption
+- Correction d'erreur avant: Les paquets perdus peuvent être reconstruits sans retransmission
+
+**Résultat:** QUIC combine les meilleures parties de SPDY/HTTP/2 avec un protocole de transport non-bloquant.
+
+#### Caractéristiques supplémentaires
+
+**1. Contrôle de congestion et fiabilité:**
+- Incorpore les meilleures pratiques TCP
+- TCP CUBIC-fair avec TCP FACK, TLP, F-RTO, Early Retransmit
+
+**2. Migration de connexion:**
+- QUIC n'utilise pas le quadruplet TCP (source IP/port → destination IP/port)
+- Utilise Connection UUID unique
+- Passage de WiFi à LTE sans renegociation TLS
+- Connexion UUID reste valide
+
+**3. Protection côté client:**
+- UDP bloqué? Chrome bascule automatiquement à HTTP/TCP
+- MTU trop petit? QUIC échoue, Chrome bascule à TCP
+- Client refuse QUIC? Drapeau/politique administrative
+
+#### État du déploiement de QUIC
+
+**Situation actuelle:**
+- QUIC est actuellement supporté que sur les services Google
+- Pare-feu serveur probablement OK chez Google
+- Les chiffres de déploiement montrent:
+  - ~93% des clients: QUIC fonctionne
+  - ~4.5% des clients: UDP bloqué par l'utilisateur
+  - ~0.3% des clients: Taux UDP limité
+  - ~2%: Chrome perd la course à QUIC
+
+**Obstacles au déploiement complet:**
+- Pare-feu d'entreprise bloquant UDP
+- Raisons de conformité
+- Nombreuses entreprises ont désactivé QUIC
+
+---
+
+## 5. Conclusion
+
+### 5.1 Résumé des concepts clés
+
+Le streaming vidéo sur Internet est un domaine complexe qui a considérablement évolué:
+
+1. **Du RTP/UDP vers HTTP**: La migration vers HTTP pour le streaming offre simplicité, firewall-friendliness et intégration CDN.
+
+2. **De HTTP fixe vers HTTP adaptatif**: HAS (MPEG-DASH, HLS) permet l'adaptation dynamique du débit vidéo aux variations de bande passante.
+
+3. **De TCP vers QUIC**: Les protocoles modernes (HTTP/3 sur QUIC) offrent vitesse, fiabilité et meilleure utilisation de la bande passante.
+
+### 5.2 Défis actuels
+
+- **Stabilité d'adaptation**: Les algorithmes d'adaptation doivent être stables et justes
+- **Interférence TCP-HAS**: La double boucle de contrôle peut créer de l'instabilité
+- **Déploiement QUIC**: Adoption mondiale limitée pour l'instant
+- **Qualité d'expérience**: Balancer qualité, variations de qualité, rebuffering et délai initial
+
+### 5.3 Directions futures
+
+- **QUIC généralisé**: Déploiement au-delà de Google
+- **IA pour l'adaptation**: Utiliser machine learning pour prédire la bande passante
+- **Codage efficace**: Réduire la bande passante requise (AV1, VP9)
+- **Réseau edge**: CDN et compute nodes plus proches des utilisateurs
+- **Streaming 8K et VR**: Futures applications demandant plus de bande passante
+
+---
+
+## Glossaire
+
+| Acronyme | Signification |
+|----------|---------------|
+| DASH | MPEG Dynamic Adaptive Streaming over HTTP |
+| HAS | HTTP Adaptive Streaming |
+| HLS | HTTP Live Streaming |
+| PSNR | Peak Signal-to-Noise Ratio |
+| QoE | Quality of Experience |
+| QoS | Quality of Service |
+| QUIC | Quick UDP Internet Connections |
+| RTP | Real-time Transport Protocol |
+| RTSP | Real Time Streaming Protocol |
+| RTT | Round Trip Time |
+| VQM | Video Quality Metric |
+| CDN | Content Delivery Network |
+| TCP | Transmission Control Protocol |
+| UDP | User Datagram Protocol |
+| HTTP | HyperText Transfer Protocol |
+| TLS | Transport Layer Security |
+| MOS | Mean Opinion Score |

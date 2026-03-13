@@ -978,3 +978,4 @@ async runEnemyTurn(enemy, gameState) {
 > **Règle d'or** : coder et tester `EnemyBrain` + `ActionSelector` en Node.js pur
 > avec des états mockés *avant* de l'intégrer à BabylonJS. Les bugs IA sont
 > beaucoup plus faciles à corriger en dehors du moteur 3D.
+3.6
