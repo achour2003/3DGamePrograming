@@ -27,7 +27,7 @@ const createScene = async function () {
     let animGroupsObj = {};
 
     // Fonction pour charger et lier une animation
-    async function loadAnimation(folder, file, keyName) {
+    async function loadAnimation(folder, file, keyName, isLooping = true) {
         try {
             const animResult = await BABYLON.SceneLoader.LoadAssetContainerAsync(folder, file, scene);
             if (animResult.animationGroups.length > 0) {
@@ -39,97 +39,171 @@ const createScene = async function () {
                         if (heroNode) ta.target = heroNode;
                     }
                 });
+                
+                // Activer le blending pour des transitions fluides
+                animGroup.enableBlending = true;
+                animGroup.blendingSpeed = 0.05;
+                
                 scene.animationGroups.push(animGroup);
                 animGroup.stop();
-                animGroupsObj[keyName] = animGroup;
+                animGroupsObj[keyName] = { group: animGroup, looping: isLooping };
             }
         } catch (e) {
             console.error("Erreur avec " + file, e);
         }
     }
 
-    // Loader toutes les anims de Jog (Z, Q, S, D) - Clavier AZERTY
-    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd.glb", "z");
-    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd.glb", "s");
-    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Left.glb", "q");
-    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Right.glb", "d");
+    // Charger les animations de Jog (8 directions)
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd.glb", "jog_z");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd.glb", "jog_s");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Left.glb", "jog_q");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Right.glb", "jog_d");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd_Left.glb", "jog_zq");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd_Right.glb", "jog_zd");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd_Left.glb", "jog_sq");
+    await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd_Right.glb", "jog_sd");
     
-    // Pour l'animation d'attente (idle), si pas dispo on utilise juste pas d'anim ou la première dispo
-    // Si vous avez un idle, ajoutez-le ici: await loadAnimation("annim/", "Idle.glb", "idle");
+    // Charger les animations de marche (Walk - 8 directions)
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Fwd.glb", "walk_z");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Bwd.glb", "walk_s");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Left.glb", "walk_q");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Right.glb", "walk_d");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Fwd_Left.glb", "walk_zq");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Fwd_Right.glb", "walk_zd");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Bwd_Left.glb", "walk_sq");
+    await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Bwd_Right.glb", "walk_sd");
+
+    // Charger les animations de saut (Jump)
+    await loadAnimation("annim/jump/", "MM_Jump.glb", "jump", false);
+    await loadAnimation("annim/jump/", "MM_Fall_Loop.glb", "fall", true);
+    await loadAnimation("annim/jump/", "MM_Land.glb", "land", false);
 
     let isMoving = false;
     let inputMap = {};
+    let isJumping = false;
+    let isLanding = false;
 
     window.addEventListener("keydown", (evt) => {
         let key = evt.key.toLowerCase();
+        if(key === " ") key = "space";
+        if(evt.shiftKey) inputMap["shift"] = true;
         inputMap[key] = true;
     });
 
     window.addEventListener("keyup", (evt) => {
         let key = evt.key.toLowerCase();
+        if(key === " ") key = "space";
+        if(!evt.shiftKey) inputMap["shift"] = false;
         inputMap[key] = false;
     });
 
-    // Vitesse de déplacement
-    const moveSpeed = 4.0; 
+    const moveSpeedJog = 4.0;
+    const moveSpeedWalk = 2.0;
 
-    // Mettre à jour la logique à chaque frame
+    // Vitesse de transition pour le saut
+    let verticalVelocity = 0;
+    const gravity = -9.81 * 1.5;
+
+    // Fonction pour jouer l'animation avec un fade
+    function playAnimation(animKey) {
+        let animObj = animGroupsObj[animKey];
+        if (!animObj || currentAnimation === animObj.group) return;
+        
+        // Mettre en balance le poids si on avait déjà une anim pour crossfade
+        if (currentAnimation) {
+            // Un fondu sera automatiquement géré par enableBlending = true
+            currentAnimation.stop();
+        }
+        currentAnimation = animObj.group;
+        currentAnimation.play(animObj.looping);
+    }
+
+    // Callback pour forcer la fin du saut (simplifié)
+    if(animGroupsObj["jump"]) {
+        animGroupsObj["jump"].group.onAnimationGroupEndObservable.add((grp) => {
+            if(grp === currentAnimation && isJumping) {
+                playAnimation("fall");
+            }
+        });
+    }
+    if(animGroupsObj["land"]) {
+        animGroupsObj["land"].group.onAnimationGroupEndObservable.add((grp) => {
+            if(grp === currentAnimation && isLanding) {
+                isLanding = false;
+                currentAnimation = null; // force recalcul de l'anim de déplacement
+            }
+        });
+    }
+
     scene.onBeforeRenderObservable.add(() => {
         let deltaTime = engine.getDeltaTime() / 1000.0;
-        let moved = false;
         let walkDir = new BABYLON.Vector3(0, 0, 0);
-        let animToPlay = null;
-
-        // Détection des touches Z Q S D (AZERTY)
-        if (inputMap["z"]) {
-            walkDir.z += 1;
-            animToPlay = animGroupsObj["z"];
-            moved = true;
-        } else if (inputMap["s"]) {
-            walkDir.z -= 1;
-            animToPlay = animGroupsObj["s"];
-            moved = true;
-        }
         
-        if (inputMap["q"]) {
-            walkDir.x -= 1;
-            if(!inputMap["z"] && !inputMap["s"]) animToPlay = animGroupsObj["q"];
-            moved = true;
-        } else if (inputMap["d"]) {
-            walkDir.x += 1;
-            if(!inputMap["z"] && !inputMap["s"]) animToPlay = animGroupsObj["d"];
-            moved = true;
-        }
+        let zPos = inputMap["z"];
+        let sPos = inputMap["s"];
+        let qPos = inputMap["q"];
+        let dPos = inputMap["d"];
+        let walk = inputMap["shift"];
 
-        // Si le perso bouge
-        if (moved) {
-            // Normaliser le vecteur de déplacement pour pas aller plus vite en diagonale
+        let keySuffix = "";
+        
+        if (zPos && qPos) { walkDir.z += 1; walkDir.x -= 1; keySuffix = "zq"; }
+        else if (zPos && dPos) { walkDir.z += 1; walkDir.x += 1; keySuffix = "zd"; }
+        else if (sPos && qPos) { walkDir.z -= 1; walkDir.x -= 1; keySuffix = "sq"; }
+        else if (sPos && dPos) { walkDir.z -= 1; walkDir.x += 1; keySuffix = "sd"; }
+        else if (zPos) { walkDir.z += 1; keySuffix = "z"; }
+        else if (sPos) { walkDir.z -= 1; keySuffix = "s"; }
+        else if (qPos) { walkDir.x -= 1; keySuffix = "q"; }
+        else if (dPos) { walkDir.x += 1; keySuffix = "d"; }
+
+        // Mouvement (même en sautant on garde l'inertie horizontale actuelle)
+        if (keySuffix !== "") {
             walkDir.normalize();
+            let currentSpeed = walk ? moveSpeedWalk : moveSpeedJog;
+            hero.position.addInPlace(walkDir.scale(currentSpeed * deltaTime));
+        }
 
-            // Mettre à jour la position
-            hero.position.addInPlace(walkDir.scale(moveSpeed * deltaTime));
-            
-            // Jouer l'animation de mouvement si elle n'est pas déjà en cours
-            if (animToPlay && currentAnimation !== animToPlay) {
-                if (currentAnimation) currentAnimation.stop();
-                currentAnimation = animToPlay;
-                currentAnimation.play(true);
+        // --- Logique du saut ---
+        if (inputMap["space"] && !isJumping && !isLanding) {
+            isJumping = true;
+            verticalVelocity = 6.0; // Puissance du saut
+            playAnimation("jump");
+        }
+
+        if (isJumping) {
+            hero.position.y += verticalVelocity * deltaTime;
+            verticalVelocity += gravity * deltaTime;
+
+            // Chute
+            if (verticalVelocity < 0 && currentAnimation !== animGroupsObj["fall"]?.group && currentAnimation !== animGroupsObj["jump"]?.group) {
+                playAnimation("fall");
             }
-        } else {
-            // Si on ne bouge plus, on arrête l'animation
-            if (currentAnimation) {
-                currentAnimation.stop();
-                currentAnimation = null;
+
+            // Atterrissage
+            if (hero.position.y <= 0) {
+                hero.position.y = 0;
+                isJumping = false;
+                isLanding = true;
+                playAnimation("land");
+                verticalVelocity = 0;
+            }
+        } else if (!isLanding) {
+            // Choix de l'animation de déplacement horizontal
+            if (keySuffix !== "") {
+                let prefix = walk ? "walk_" : "jog_";
+                playAnimation(prefix + keySuffix);
+            } else {
+                if (currentAnimation) {
+                    currentAnimation.stop();
+                    currentAnimation = null;
+                }
             }
         }
-        
-        // La caméra suit le personnage (basique)
+
         camera.target = hero.position.clone().add(new BABYLON.Vector3(0, 1, 0));
     });
 
-    // Mettre à jour les instructions HTML
-    document.getElementById("animList").innerHTML = "<li>Z : Avancer (Jog Fwd)</li><li>S : Reculer (Jog Bwd)</li><li>Q : Gauche (Jog Left)</li><li>D : Droite (Jog Right)</li>";
-
+    // Instructions retirées d'ici, remises dans le HTML
     return scene;
 };
 

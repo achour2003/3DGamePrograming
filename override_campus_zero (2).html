@@ -280,6 +280,7 @@
 
 <!-- ── BABYLON JS ─────────────────────────────────────── -->
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
 <script>
 
@@ -288,7 +289,7 @@
 // ═════════════════════════════════════════════════════
 const CFG = {
   // Physique
-  gravity:         -15,
+  gravity:         -15,      // Rétabli pour un saut moins brutal
   playerMass:       75,
   friction:          0.05,
   restitution:       0.0,
@@ -296,25 +297,25 @@ const CFG = {
   // Personnage
   capHeight:         1.8,
   capRadius:         0.38,
-  moveSpeed:         7.5,      
-  jumpVelocity:      9.5,      
-  groundCheckDist:   0.20,     
+  moveSpeedJog:      8.0,      
+  moveSpeedWalk:     3.0,
+  jumpVelocity:      8.0,      // Saut juste bien équilibré
 
-  // Caméra (Modifiée)
-  camRadius:         4.5,      // BEAUCOUP plus proche (avant: 8.0)
+  // Caméra (Modifiée pour être plus proche)
+  camRadius:         3.8,      // Plus près (avant 4.5)
   camAlpha:         -Math.PI / 2,
-  camBeta:           Math.PI / 2.6, // Angle légèrement abaissé pour être derrière le joueur
-  camMinR:           2.0,
+  camBeta:           Math.PI / 2.6, 
+  camMinR:           1.5,
   camMaxR:           15,
   
-  // Effet de zoom dynamique (Nouveau)
-  camFovIdle:        0.65,     // FOV réduit = zoom quand arrêté
-  camFovMove:        0.85,     // FOV large = sensation de vitesse en mouvement
+  // Effet de zoom dynamique
+  camFovIdle:        0.60,     // FOV réduit = zoom quand arrêté
+  camFovMove:        0.72,     // FOV moins grand = on est moins loin en courant
 
-  // Fluidité (Modifiée)
+  // Fluidité
   rotLerp:           0.13,     
-  camLerp:           0.25,     // PLUS RÉACTIF pour suivre le joueur (avant: 0.09)
-  camFovLerp:        0.04,     // Vitesse très douce pour l'effet de zoom
+  camLerp:           0.25,     
+  camFovLerp:        0.04,     
 };
 
 // ═════════════════════════════════════════════════════
@@ -344,9 +345,16 @@ const P = {
 const G = {
   keys:      {},
   jumpReq:   false,
+  runReq:    false,
+  isJumping: false,
+  lastVelY:  0,
   grounded:  false,
   facing:    0,
   moveDir:   new BABYLON.Vector3(0, 0, 0),
+  lastMoveDir: new BABYLON.Vector3(0, 0, 1),
+  currentSpeed: 0,
+  lastAnimSuffix: "z",
+  jumpCooldown: 0,
 };
 
 // ═════════════════════════════════════════════════════
@@ -602,8 +610,17 @@ async function buildScene(engine, canvas) {
   // ── CARTE ──────────────────────────────────────────
   buildMap(scene);
 
+  // ── Rendre tous les éléments de la carte "Solides" pour la caméra ──
+  scene.collisionsEnabled = true;
+  scene.meshes.forEach(m => {
+      // Si ce n'est pas le joueur, on active la vraie collision
+      if (!m.name.startsWith("player") && !m.name.startsWith("cam")) {
+          m.checkCollisions = true;  
+      }
+  });
+
   // ── PERSONNAGE ─────────────────────────────────────
-  const player = buildPlayer(scene);
+  const player = await buildPlayer(scene);
 
   // ── CAMÉRA 3ÈME PERSONNE ──────────────────────────
   const camera = buildCamera(scene, canvas, player.mesh);
@@ -835,7 +852,7 @@ function buildMap(scene) {
 // ═════════════════════════════════════════════════════
 //  🧍  PERSONNAGE
 // ═════════════════════════════════════════════════════
-function buildPlayer(scene) {
+async function buildPlayer(scene) {
   // ── Corps physique (capsule invisible) ─────────────
   const mesh          = BABYLON.MeshBuilder.CreateCapsule("playerPhys", {
     height:          CFG.capHeight,
@@ -854,55 +871,114 @@ function buildPlayer(scene) {
     scene,
   );
 
-  // Bloquer toute rotation du corps physique
-  // → le capsule ne bascule jamais même sur les pentes
   agg.body.setMassProperties({
     inertia:            new BABYLON.Vector3(0, 0, 0),
     inertiaOrientation: BABYLON.Quaternion.Identity(),
   });
   agg.body.setAngularDamping(500);
 
-  // ── Racine visuelle (détachée du corps physique) ───
-  const visual    = new BABYLON.TransformNode("playerVis", scene);
+  const visual = new BABYLON.TransformNode("playerVis", scene);
 
-  // Silhouette — capsule visuelle
-  const body      = BABYLON.MeshBuilder.CreateCapsule("playerBody", {
-    height: CFG.capHeight, radius: CFG.capRadius, capSubdivisions: 8, subdivisions: 1,
-  }, scene);
-  body.parent     = visual;
-  body.isPickable = false;
-  const mBody     = new BABYLON.StandardMaterial("mBody", scene);
-  mBody.diffuseColor  = P.bodyCol;
-  mBody.emissiveColor = P.bodyE;
-  mBody.specularColor = new BABYLON.Color3(0.28, 0.48, 0.88);
-  mBody.specularPower = 60;
-  body.material = mBody;
+  // Charger le mannequin
+  const result = await BABYLON.SceneLoader.ImportMeshAsync("", "mannequins/", "SKM_Manny_Simple.glb", scene);
+  const hero = result.meshes[0];
+  hero.parent = visual;
+  // Position pour aligner les pieds sur le bas de la capsule
+  hero.position.y = -CFG.capHeight / 2;
 
-  // Tête — sphère orange (couleur humaine, contraste avec le bleu ARIA)
-  const head      = BABYLON.MeshBuilder.CreateSphere("playerHead",
-    { diameter: 0.44, segments: 10 }, scene);
-  head.parent     = visual;
-  head.position.y = CFG.capHeight / 2 + 0.06;
-  head.isPickable = false;
-  const mHead     = new BABYLON.StandardMaterial("mHead", scene);
-  mHead.diffuseColor  = P.headCol;
-  mHead.emissiveColor = P.headE;
-  mHead.specularColor = new BABYLON.Color3(0.6, 0.35, 0.1);
-  head.material = mHead;
+  // On détruit les animations internes pour repartir à zéro
+  if (result.animationGroups) {
+      result.animationGroups.forEach(ag => ag.dispose());
+  }
 
-  // Indicateur de direction (flèche cyan)
-  const dir       = BABYLON.MeshBuilder.CreateBox("playerDir",
-    { width: 0.11, height: 0.11, depth: 0.48 }, scene);
-  dir.parent      = visual;
-  dir.position.y  = CFG.capHeight / 2 + 0.06;
-  dir.position.z  = CFG.capRadius + 0.25;
-  dir.isPickable  = false;
-  const mDir      = new BABYLON.StandardMaterial("mDir", scene);
-  mDir.diffuseColor  = P.dirCol;
-  mDir.emissiveColor = P.dirE;
-  dir.material = mDir;
+  // ── Système d'Animations ──
+  const animGroupsObj = {};
+  let currentAnimation = null;
 
-  return { mesh, agg, visual };
+  async function loadAnimation(folder, file, keyName, isLooping = true) {
+      try {
+          const animResult = await BABYLON.SceneLoader.LoadAssetContainerAsync(folder, file, scene);
+          if (animResult.animationGroups.length > 0) {
+              const animGroup = animResult.animationGroups[0];
+              animGroup.targetedAnimations.forEach(ta => {
+                  const originalNode = ta.target;
+                  if(originalNode && originalNode.name) {
+                      const heroNode = scene.getNodeByName(originalNode.name);
+                      if (heroNode) ta.target = heroNode;
+                  }
+              });
+              
+              animGroup.enableBlending = true;
+              animGroup.blendingSpeed = 0.12; // Transition extra douce
+              
+              scene.animationGroups.push(animGroup);
+              animGroup.stop();
+              animGroupsObj[keyName] = { group: animGroup, looping: isLooping };
+          }
+      } catch (e) {
+          console.error("Erreur avec " + file, e);
+      }
+  }
+
+  // JOG
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd.glb", "jog_z");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd.glb", "jog_s");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Left.glb", "jog_q");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Right.glb", "jog_d");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd_Left.glb", "jog_zq");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Fwd_Right.glb", "jog_zd");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd_Left.glb", "jog_sq");
+  await loadAnimation("annim/jog/", "MF_Unarmed_Jog_Bwd_Right.glb", "jog_sd");
+  
+  // WALK
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Fwd.glb", "walk_z");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Bwd.glb", "walk_s");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Left.glb", "walk_q");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Right.glb", "walk_d");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Fwd_Left.glb", "walk_zq");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Fwd_Right.glb", "walk_zd");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Bwd_Left.glb", "walk_sq");
+  await loadAnimation("annim/wolk/", "MF_Unarmed_Walk_Bwd_Right.glb", "walk_sd");
+
+  // JUMP
+  await loadAnimation("annim/jump/", "MM_Jump.glb", "jump", false);
+  await loadAnimation("annim/jump/", "MM_Fall_Loop.glb", "fall", true);
+  await loadAnimation("annim/jump/", "MM_Land.glb", "land", false);
+
+  // IDLE (Nouvelle position de base demandée : Lévitation)
+  await loadAnimation("annim/", "AS_Levitating.glb", "idle", true);
+  
+  // On lance l'idle au démarrage
+  if (animGroupsObj["idle"]) {
+      currentAnimation = animGroupsObj["idle"].group;
+      currentAnimation.play(true);
+  }
+
+  function playAnim(animKey) {
+      const animObj = animGroupsObj[animKey];
+      if (!animObj || currentAnimation === animObj.group) return;
+      if (currentAnimation) currentAnimation.stop();
+      currentAnimation = animObj.group;
+      currentAnimation.play(animObj.looping);
+  }
+  
+  function stopAnim() {
+      if (currentAnimation) {
+          currentAnimation.stop();
+          currentAnimation = null;
+      }
+  }
+
+  // Permet de libérer le state Land si on avait hard-lock (pas besoin ici)
+  if(animGroupsObj["land"]) {
+      animGroupsObj["land"].group.onAnimationGroupEndObservable.add((grp) => {
+          if(grp === currentAnimation) {
+              currentAnimation = null;
+          }
+      });
+  }
+
+  return { mesh, agg, visual, playAnim, stopAnim, animGroupsObj, get currentAnimation() { return currentAnimation; } };
 }
 
 // ═════════════════════════════════════════════════════
@@ -915,6 +991,11 @@ function buildCamera(scene, canvas, playerMesh) {
 
   cam.minZ                  = 0.1; // Évite de voir à travers le perso quand on est très proche
   cam.maxZ                  = 400;
+  
+  // NOUVEAU: Empêcher la caméra de traverser les murs
+  cam.checkCollisions       = true; 
+  cam.collisionRadius       = new BABYLON.Vector3(0.4, 0.4, 0.4); 
+
   cam.lowerRadiusLimit      = CFG.camMinR;
   cam.upperRadiusLimit      = CFG.camMaxR;
   cam.lowerBetaLimit        = 0.10;
@@ -939,14 +1020,19 @@ function buildCamera(scene, canvas, playerMesh) {
 // ═════════════════════════════════════════════════════
 function bindInput() {
   window.addEventListener("keydown", e => {
+    // Si la touche est déjà enfoncée (répétition auto du clavier), on ignore
+    if (e.repeat) return;
+    
     G.keys[e.code] = true;
     if (e.code === "Space") {
       e.preventDefault();
       G.jumpReq = true;
     }
+    if (e.key === "Shift") G.runReq = true;
   });
   window.addEventListener("keyup", e => {
     G.keys[e.code] = false;
+    if (e.key === "Shift") G.runReq = false;
   });
 }
 
@@ -997,8 +1083,20 @@ function loop(scene, player, camera, engine) {
   // Garantit que le personnage ne bascule jamais
   body.setAngularVelocity(BABYLON.Vector3.Zero());
 
+  // ── Gérer le Cooldown du Saut (empêche double jump) ─
+  if (G.jumpCooldown > 0) {
+      G.jumpCooldown -= engine.getDeltaTime();
+  }
+
   // ── Détection sol ─────────────────────────────────
   G.grounded = groundCheck(scene, mesh);
+  
+  // 🔊 CORRECTIF: Sécurité au décollage
+  // Le perso commence à monter mais le raycast touche encore le sol pendant 5 frames.
+  // On force l'état "en l'air" au tout début du saut pour ne pas couper son animation par une course.
+  if (G.jumpCooldown > 150) {
+      G.grounded = false;
+  }
 
   // ── Direction relative à la caméra ────────────────
   // "Avant" = vecteur de la caméra vers le joueur, projeté sur XZ
@@ -1020,36 +1118,107 @@ function loop(scene, player, camera, engine) {
   if (G.keys["KeyA"] || G.keys["ArrowLeft"])  G.moveDir.subtractInPlace(camRight);
 
   const moving = G.moveDir.length() > 0.01;
-  if (moving) G.moveDir.normalize();
+  if (moving) {
+      G.moveDir.normalize();
+      G.lastMoveDir.copyFrom(G.moveDir);
+  }
+
+  // ── Inertie et Vitesse ────────────────────────────
+  // Vitesse cible: si on bouge = (si runReq = Jog, sinon Walk), sinon 0
+  const targetSpeed = moving ? (G.runReq ? CFG.moveSpeedJog : CFG.moveSpeedWalk) : 0;
+  // Lerp de la vitesse actuelle (0.15 = inertie modérée)
+  G.currentSpeed = BABYLON.Scalar.Lerp(G.currentSpeed, targetSpeed, 0.15); 
+  
+  // Forcer à 0 complet si on est presque arrêté pour éviter la marche infinie de M.Jackson
+  if (G.currentSpeed < 0.2) {
+      G.currentSpeed = 0;
+  }
+  
+  // Utiliser la dernière direction connue pour glisser doucement quand on lâche les touches
+  const actualDir = moving ? G.moveDir : G.lastMoveDir;
 
   // ── Appliquer la vélocité horizontale ─────────────
   // La composante Y (gravité/saut) est conservée telle quelle
   body.setLinearVelocity(new BABYLON.Vector3(
-    G.moveDir.x * CFG.moveSpeed,
+    actualDir.x * G.currentSpeed,
     vel.y,
-    G.moveDir.z * CFG.moveSpeed,
+    actualDir.z * G.currentSpeed,
   ));
 
   // ── Saut (autorisé uniquement si au sol) ──────────
-  if (G.jumpReq && G.grounded) {
+  if (G.jumpReq && G.grounded && G.jumpCooldown <= 0) {
+    player.playAnim("jump");
     body.setLinearVelocity(new BABYLON.Vector3(
-      G.moveDir.x * CFG.moveSpeed,
+      actualDir.x * G.currentSpeed,
       CFG.jumpVelocity,
-      G.moveDir.z * CFG.moveSpeed,
+      actualDir.z * G.currentSpeed,
     ));
+    G.isJumping = true;
+    G.grounded = false; // Désactiver sol manuellement pendant 1 frame au moins
+    G.jumpCooldown = 300; // Bloque les autres sauts pendant 300ms
   }
   G.jumpReq = false;
 
   // ── Synchroniser le visuel sur le corps physique ──
   visual.position.copyFrom(mesh.position);
 
-  // ── Rotation smooth du personnage vers le déplacement ─
-  if (moving) {
-    const target = Math.atan2(G.moveDir.x, G.moveDir.z);
+  // ── ANIMATIONS ET ROTATION ────────────────────────
+  if (!G.grounded) {
+      if (vel.y < -0.1) {
+          player.playAnim("fall");
+      } else if (G.isJumping) {
+          player.playAnim("jump");
+      }
+  } else {
+      G.isJumping = false;
+      let animSuffix = "";
+      
+      const zPos = G.keys["KeyW"] || G.keys["ArrowUp"];
+      const sPos = G.keys["KeyS"] || G.keys["ArrowDown"];
+      const qPos = G.keys["KeyA"] || G.keys["ArrowLeft"];
+      const dPos = G.keys["KeyD"] || G.keys["ArrowRight"];
+
+      if (zPos && qPos) animSuffix = "zq"; 
+      else if (zPos && dPos) animSuffix = "zd";
+      else if (sPos && qPos) animSuffix = "sq";
+      else if (sPos && dPos) animSuffix = "sd";
+      else if (zPos) animSuffix = "z";
+      else if (sPos) animSuffix = "s";
+      else if (qPos) animSuffix = "q";
+      else if (dPos) animSuffix = "d";
+
+      if (animSuffix !== "") G.lastAnimSuffix = animSuffix;
+
+      // Si on bouge encore un peu (inertie ou intentionnel)
+      if (G.currentSpeed > 0.0) {
+          // Si notre inertie/vitesse est au-dessus du seuil de marche, on Jog, sinon Walk
+          const prefix = G.currentSpeed > CFG.moveSpeedWalk + 0.5 ? "jog_" : "walk_";
+          player.playAnim(prefix + G.lastAnimSuffix);
+      } else {
+          // Si on atterrit avec force
+          if (G.lastVelY < -2.0) {
+              player.playAnim("land");
+          } else {
+              // Si on est à l'arrêt complet (Vrai 0.00 !)
+              const isLanding = player.currentAnimation === player.animGroupsObj["land"]?.group;
+              if (!isLanding) {
+                  if (player.animGroupsObj["idle"]) {
+                      player.playAnim("idle"); // On rejoue le beau Idle de départ avec fondu !
+                  }
+              }
+          }
+      }
+  }
+  G.lastVelY = vel.y;
+
+  // ── Rotation smooth du personnage vers la caméra ──
+  // Pour que les animations directionnelles collent au mouvement
+  if (G.currentSpeed > 0.5) {
+    const target = -camera.alpha - Math.PI / 2;
     let   diff   = target - G.facing;
     while (diff >  Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
-    G.facing             += diff * CFG.rotLerp;
+    G.facing             += diff * (CFG.rotLerp * 2);
     visual.rotation.y     = G.facing;
   }
 
@@ -1059,8 +1228,11 @@ function loop(scene, player, camera, engine) {
   camera.target   = BABYLON.Vector3.Lerp(camera.target, camTarget, CFG.camLerp);
 
   // ── Zoom dynamique et cinématique (FOV) ───────────
-  // Si le joueur bouge, on dézoome doucement. S'il s'arrête, on zoome doucement.
-  const targetFov = moving ? CFG.camFovMove : CFG.camFovIdle;
+  // Au lieu d'utiliser un boolean binaire (moving), on utilise la proportion de vitesse 
+  // pour dézoomer plus on va vite (jusqu'à speedJog)
+  const speedRatio = Math.min(G.currentSpeed / CFG.moveSpeedJog, 1.0);
+  const targetFov = BABYLON.Scalar.Lerp(CFG.camFovIdle, CFG.camFovMove, speedRatio);
+  
   camera.fov = BABYLON.Scalar.Lerp(camera.fov, targetFov, CFG.camFovLerp);
 
   // ── Mise à jour HUD ───────────────────────────────
