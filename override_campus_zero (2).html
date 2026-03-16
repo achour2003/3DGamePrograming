@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>OVERRIDE — Campus Zero</title>
+<title>OVERRIDE â€” Campus Zero</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -21,7 +21,7 @@
     outline: none;
   }
 
-  /* ── LOADER ─────────────────────────────────────── */
+  /* â”€â”€ LOADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   #loader {
     position: fixed;
     inset: 0;
@@ -81,7 +81,7 @@
     padding: 0 40px;
   }
 
-  /* ── HUD ─────────────────────────────────────────── */
+  /* â”€â”€ HUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   #hud {
     position: fixed;
     inset: 0;
@@ -152,7 +152,7 @@
     letter-spacing: 1px;
   }
 
-  /* Réticule */
+  /* RÃ©ticule */
   .reticle {
     position: absolute;
     top: 50%; left: 50%;
@@ -174,7 +174,7 @@
     top: 50%; transform: translateY(-50%);
   }
 
-  /* Barre état verticale gauche */
+  /* Barre Ã©tat verticale gauche */
   .side-badge {
     position: absolute;
     top: 50%;
@@ -192,27 +192,27 @@
 </head>
 <body>
 
-<!-- ── LOADER ───────────────────────────────────────── -->
+<!-- â”€â”€ LOADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <div id="loader">
   <div class="logo">OVERRIDE</div>
-  <div class="sub">Campus Zero — Initialisation Physique Havok</div>
+  <div class="sub">Campus Zero â€” Initialisation Physique Havok</div>
   <div class="bar-wrap"><div class="bar-fill"></div></div>
   <div class="hint" id="loadHint">Chargement du moteur...</div>
 </div>
 
-<!-- ── CANVAS ───────────────────────────────────────── -->
+<!-- â”€â”€ CANVAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <canvas id="renderCanvas" tabindex="0"></canvas>
 
-<!-- ── HUD ──────────────────────────────────────────── -->
+<!-- â”€â”€ HUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <div id="hud">
 
   <div class="hud-title">
     <h1>OVERRIDE</h1>
-    <div class="tagline">CAMPUS ZERO  ·  BASE CODE v1.0</div>
+    <div class="tagline">CAMPUS ZERO  Â·  BASE CODE v1.0</div>
   </div>
 
   <div class="panel" id="pStatus">
-    <div><span class="lbl">ÉTAT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="sv">—</span></div>
+    <div><span class="lbl">Ã‰TAT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="sv">â€”</span></div>
     <div><span class="lbl">X&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="px">0.00</span></div>
     <div><span class="lbl">Y&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="py">0.00</span></div>
     <div><span class="lbl">Z&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="val" id="pz">0.00</span></div>
@@ -224,12 +224,12 @@
     <div><span class="key">Z</span>&nbsp;/&nbsp;<span class="key">S</span>&nbsp;&nbsp;Avancer / Reculer</div>
     <div><span class="key">Q</span>&nbsp;/&nbsp;<span class="key">D</span>&nbsp;&nbsp;Gauche / Droite</div>
     <div><span class="key">ESPACE</span>&nbsp;&nbsp;Sauter</div>
-    <div><span class="key">SOURIS</span>&nbsp;&nbsp;Orienter caméra</div>
-    <div><span class="key">SCROLL</span>&nbsp;&nbsp;Zoom caméra</div>
+    <div><span class="key">SOURIS</span>&nbsp;&nbsp;Orienter camÃ©ra</div>
+    <div><span class="key">SCROLL</span>&nbsp;&nbsp;Zoom camÃ©ra</div>
   </div>
 
   <div class="reticle"></div>
-  <div class="side-badge">OVERRIDE · CAMPUS ZERO · 2027</div>
+  <div class="side-badge">OVERRIDE Â· CAMPUS ZERO Â· 2027</div>
   
 
 </div>
@@ -237,11 +237,11 @@
   <div style="position: absolute; top: 0; width: 100%; height: 12%; background: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));"></div>
   <div style="position: absolute; bottom: 0; width: 100%; height: 30%; background: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0)); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 30px;">
     
-    <div id="cLog" style="color: #48CAE4; font-size: 16px; margin-bottom: 20px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 8px rgba(72,202,228,0.5);">Rupture détectée. Engagement imminent.</div>
+    <div id="cLog" style="color: #48CAE4; font-size: 16px; margin-bottom: 20px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 8px rgba(72,202,228,0.5);">Rupture dÃ©tectÃ©e. Engagement imminent.</div>
     
     <div style="display: flex; gap: 150px; font-size: 14px; color: white; margin-bottom: 30px; font-weight: bold; text-transform: uppercase;">
       <div>JOUEUR <span id="cHpj" style="color: #10B981;">100</span>/100 HP | <span id="cMpj" style="color: #2E86DE;">50</span>/50 MP</div>
-      <div>ENTITÉ ALPHA <span id="cHpe" style="color: #EF4444;">120</span>/120 HP</div>
+      <div>ENTITÃ‰ ALPHA <span id="cHpe" style="color: #EF4444;">120</span>/120 HP</div>
     </div>
 
     <div id="cMenu" style="display: flex; gap: 30px; opacity: 0; transition: opacity 0.3s;">
@@ -257,7 +257,7 @@
       </div>
       <div class="action-box">
         <span class="hotkey">3</span>
-        <span class="act-name" style="color: #10B981;">RÉPARATION</span>
+        <span class="act-name" style="color: #10B981;">RÃ‰PARATION</span>
         <span class="act-cost" style="color: #10B981;">OBJ x<span id="cPot">3</span></span>
       </div>
     </div>
@@ -278,18 +278,22 @@
   .act-cost { font-size: 10px; color: #64748b; }
 </style>
 
-<!-- ── BABYLON JS ─────────────────────────────────────── -->
+<!-- â”€â”€ BABYLON JS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
 <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
-<script>
+<script type="module">
+import { AIEngine } from './src/ai/AIEngine.js';
+import { EnemyFactory } from './src/ai/EnemyFactory.js';
+import { Entity } from './src/ai/models/Entity.js';
+import { Skill } from './src/ai/models/Skill.js';
 
-// ═════════════════════════════════════════════════════
-//  ⚙️  CONFIG
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  âš™ï¸  CONFIG
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const CFG = {
   // Physique
-  gravity:         -15,      // Rétabli pour un saut moins brutal
+  gravity:         -15,      // RÃ©tabli pour un saut moins brutal
   playerMass:       75,
   friction:          0.05,
   restitution:       0.0,
@@ -299,38 +303,39 @@ const CFG = {
   capRadius:         0.38,
   moveSpeedJog:      8.0,      
   moveSpeedWalk:     3.0,
-  jumpVelocity:      8.0,      // Saut juste bien équilibré
+  jumpVelocity:      8.0,      // Saut juste bien Ã©quilibrÃ©
+  groundCheckDist:   0.2,      // Distance du rayon laser sous les pieds
 
-  // Caméra (Modifiée pour être plus proche)
-  camRadius:         3.8,      // Plus près (avant 4.5)
+  // CamÃ©ra (ModifiÃ©e pour Ãªtre plus proche)
+  camRadius:         3.8,      // Plus prÃ¨s (avant 4.5)
   camAlpha:         -Math.PI / 2,
   camBeta:           Math.PI / 2.6, 
   camMinR:           1.5,
   camMaxR:           15,
   
   // Effet de zoom dynamique
-  camFovIdle:        0.60,     // FOV réduit = zoom quand arrêté
+  camFovIdle:        0.60,     // FOV rÃ©duit = zoom quand arrÃªtÃ©
   camFovMove:        0.72,     // FOV moins grand = on est moins loin en courant
 
-  // Fluidité
+  // FluiditÃ©
   rotLerp:           0.13,     
   camLerp:           0.25,     
   camFovLerp:        0.04,     
 };
 
-// ═════════════════════════════════════════════════════
-//  🎨  PALETTE OVERRIDE (Dark Cyber)
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸŽ¨  PALETTE OVERRIDE (Dark Cyber)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const P = {
   bg:       new BABYLON.Color4(0.012, 0.020, 0.048, 1),
   fog:      new BABYLON.Color3(0.012, 0.020, 0.045),
   ground:   new BABYLON.Color3(0.055, 0.075, 0.105),
   bldA:     new BABYLON.Color3(0.065, 0.105, 0.190),   // Bleu profond
-  bldB:     new BABYLON.Color3(0.042, 0.068, 0.135),   // Bleu très sombre
-  bldC:     new BABYLON.Color3(0.090, 0.155, 0.255),   // Bleu intermédiaire
+  bldB:     new BABYLON.Color3(0.042, 0.068, 0.135),   // Bleu trÃ¨s sombre
+  bldC:     new BABYLON.Color3(0.090, 0.155, 0.255),   // Bleu intermÃ©diaire
   prop:     new BABYLON.Color3(0.095, 0.120, 0.160),
   glow:     new BABYLON.Color3(0.040, 0.220, 0.520),
-  glowE:    new BABYLON.Color3(0.160, 0.520, 0.900),   // Emissive néon
+  glowE:    new BABYLON.Color3(0.160, 0.520, 0.900),   // Emissive nÃ©on
   bodyCol:  new BABYLON.Color3(0.130, 0.210, 0.370),
   bodyE:    new BABYLON.Color3(0.020, 0.060, 0.150),
   headCol:  new BABYLON.Color3(0.980, 0.450, 0.090),
@@ -339,9 +344,9 @@ const P = {
   dirE:     new BABYLON.Color3(0.040, 0.300, 0.600),
 };
 
-// ═════════════════════════════════════════════════════
-//  🎮  ÉTAT GLOBAL
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸŽ®  Ã‰TAT GLOBAL
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const G = {
   keys:      {},
   jumpReq:   false,
@@ -357,14 +362,14 @@ const G = {
   jumpCooldown: 0,
 };
 
-// ═════════════════════════════════════════════════════
-//  🔧  CHARGEMENT DYNAMIQUE DE HAVOK
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ”§  CHARGEMENT DYNAMIQUE DE HAVOK
 //  On utilise unpkg (@babylonjs/havok) qui expose le
-//  global HavokPhysics de façon fiable en UMD.
-// ═════════════════════════════════════════════════════
+//  global HavokPhysics de faÃ§on fiable en UMD.
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function loadHavok() {
   return new Promise((resolve, reject) => {
-    // Si déjà chargé (hot-reload), on l'utilise directement
+    // Si dÃ©jÃ  chargÃ© (hot-reload), on l'utilise directement
     if (typeof HavokPhysics !== "undefined") {
       return HavokPhysics().then(resolve).catch(reject);
     }
@@ -372,7 +377,7 @@ function loadHavok() {
     s.src      = "https://cdn.babylonjs.com/havok/HavokPhysics_umd.js";; // Updated to use local file
     s.onload   = () => {
       if (typeof HavokPhysics === "undefined") {
-        reject(new Error("HavokPhysics introuvable après chargement du script."));
+        reject(new Error("HavokPhysics introuvable aprÃ¨s chargement du script."));
       } else {
         HavokPhysics().then(resolve).catch(reject);
       }
@@ -381,22 +386,34 @@ function loadHavok() {
     document.head.appendChild(s);
   });
 }
-// ═════════════════════════════════════════════════════
-//  ⚔️  SYSTÈME DE COMBAT AMÉLIORÉ
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  âš”ï¸  SYSTÃˆME DE COMBAT AMÃ‰LIORÃ‰
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const COMBAT = {
   active: false,
   turn: 'NONE', // 'PLAYER', 'ENEMY', 'BUSY'
   enemyMesh: null,
+  playerMesh: null,
   
-  // Stats
-  pMaxHp: 100, pHp: 100, pMaxMp: 50, pMp: 50, pPotions: 3,
-  eMaxHp: 120, eHp: 120,
+  // IA & Entities
+  playerEntity: null,
+  enemyEntity: null,
+  aiEngine: null, // Moteur d'IA
+
+  // Helper de dégâts maison temporaire (le temps de l'intégration finale)
+  calcDamage: function(attacker, defender, skill) {
+    let baseAtk = attacker.atk || 10;
+    let baseDef = defender.def || 5;
+    let pow = skill.power || 0;
+    // Dégâts = (Attaque + Puissance Sort) - (Defense / 2)
+    let d = (baseAtk + pow) - Math.floor(baseDef / 2);
+    return Math.max(1, d); // Minimum 1 point de dégât
+  },
 
   // Fonction pour écouter le clavier pendant le combat
   handleInput: function(evt) {
     if (this.turn !== 'PLAYER') return;
-    
+
     if (evt.key === '1') this.action('ATTACK');
     if (evt.key === '2') this.action('SKILL');
     if (evt.key === '3') this.action('ITEM');
@@ -405,14 +422,48 @@ const COMBAT = {
   init: function(scene, camera, player, enemy) {
     this.active = true;
     this.enemyMesh = enemy;
+    this.playerMesh = player.mesh;
     this.turn = 'BUSY';
     
+    // Instancier le moteur central
+    this.aiEngine = new AIEngine();
+    
+    // Init Entities via config Object conforme à src/ai/models/Entity.js
+    this.playerEntity = new Entity({
+        id: "hero1", name: "Player", hp: 100, maxHp: 100, maxPa: 4, pa: 4, atk: 15, def: 5
+    });
+    // Remplissage Array Skills
+    this.playerEntity.skills = [
+        new Skill({ id: "atk1", name: "Frappe Lame", paCost: 1, power: 15, targetType: "single" }),
+        new Skill({ id: "atk2", name: "Surcharge Électrique", paCost: 2, power: 35, targetType: "single" })
+    ];
+    this.playerEntity.inventory = { "potion": 3 };
+    
+    this.enemyEntity = EnemyFactory.fromJSON({
+        id: "alpha1", name: "Entité Alpha", level: 1,
+        stats: { hp: 120, atk: 15, def: 5 },
+        max_pa: 3, stability_max: 100,
+        traits: ["aggressive", "opportunist"],
+        jobClass: "monster",
+        skills: [
+            { id: "eAtk1", name: "Laser Mineur", paCost: 1, power: 10, type: "magical" },
+            { id: "eAtk2", name: "Décharge Plasma", paCost: 2, power: 25, type: "magical" },
+            { id: "eHeal", name: "Régénération", paCost: 2, power: -30, type: "healing" }
+        ]
+    });
+
+    // Sauvegarde en global pour accès par callbacks (ex: animation)
+    window.playerEntityObj = window.playerEntityObj || {};
+    window.playerEntityObj.playAnim = (anim) => {
+        if (player.playAnim) player.playAnim(anim);
+    };
+
     // Attacher l'écouteur d'événements clavier pour le combat
     this.boundInputHandler = this.handleInput.bind(this);
     window.addEventListener("keydown", this.boundInputHandler);
-    
+
     player.agg.body.setLinearVelocity(BABYLON.Vector3.Zero());
-    
+
     // Caméra de combat dynamique
     const midPoint = player.mesh.position.add(enemy.position).scale(0.5);
     camera.target = midPoint;
@@ -425,17 +476,19 @@ const COMBAT = {
     this.updateUI();
     this.log("COMBAT INITIÉ. CALCUL DES VECTEURS...");
 
+    // Entrée du joueur (Tour 1)
     setTimeout(() => this.setTurn('PLAYER'), 1500);
   },
 
   log: function(msg) { document.getElementById("cLog").textContent = msg; },
-  
+
   updateUI: function() {
-    document.getElementById("cHpj").textContent = this.pHp;
-    document.getElementById("cMpj").textContent = this.pMp;
-    document.getElementById("cHpe").textContent = this.eHp;
-    document.getElementById("cPot").textContent = this.pPotions;
-    
+    if(!this.playerEntity) return;
+    document.getElementById("cHpj").textContent = this.playerEntity.hp + " (PA: " + this.playerEntity.pa + ")";
+    document.getElementById("cMpj").textContent = "-"; // MP remplacé par PA
+    document.getElementById("cHpe").textContent = this.enemyEntity.hp + " (PA: " + this.enemyEntity.pa + ")";
+    document.getElementById("cPot").textContent = this.playerEntity.inventory["potion"];
+
     // Afficher ou cacher le menu selon le tour
     const menu = document.getElementById("cMenu");
     menu.style.opacity = (this.turn === 'PLAYER') ? "1" : "0.3";
@@ -443,94 +496,110 @@ const COMBAT = {
 
   setTurn: function(who) {
     this.turn = who;
-    this.updateUI();
     
     if (who === 'PLAYER') {
-      this.log("VOTRE TOUR. SÉLECTIONNEZ UNE ACTION (1, 2, 3).");
+      this.playerEntity.regeneratePA();
+      this.log("VOTRE TOUR. (1: Atk[1PA], 2: Skill[2PA], 3: Pot).");
     } else if (who === 'ENEMY') {
+      this.enemyEntity.regeneratePA();
       setTimeout(() => this.enemyAI(), 1000);
     }
+    this.updateUI();
   },
 
   action: function(type) {
     if (this.turn !== 'PLAYER') return;
-    this.setTurn('BUSY');
 
     if (type === 'ATTACK') {
-      const dmg = 15 + Math.floor(Math.random() * 10);
-      this.eHp -= dmg;
-      this.log(`FRAPPE LAME : Vous infligez ${dmg} dégâts !`);
-    } 
+      if(this.playerEntity.pa < 1) return this.log("Pas assez de PA !");
+      
+      this.setTurn('BUSY');
+      this.playerEntity.pa -= 1;
+      const skill = this.playerEntity.skills.find(s => s.id === "atk1");
+      
+      let dmg = this.calcDamage(this.playerEntity, this.enemyEntity, skill);
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE : Vous infligez " + dmg + " dégâts !");
+      
+      if(window.playerEntityObj) window.playerEntityObj.playAnim("atk1");
+    }
     else if (type === 'SKILL') {
-      if (this.pMp >= 15) {
-        this.pMp -= 15;
-        const dmg = 35 + Math.floor(Math.random() * 15);
-        this.eHp -= dmg;
-        this.log(`SURCHARGE ÉLECTRIQUE : Coup critique de ${dmg} dégâts !`);
-      } else {
-        this.log("Énergie insuffisante !");
-        return this.setTurn('PLAYER');
-      }
-    } 
+      if(this.playerEntity.pa < 2) return this.log("Pas assez de PA !");
+
+      this.setTurn('BUSY');
+      this.playerEntity.pa -= 2;
+      const skill = this.playerEntity.skills.find(s => s.id === "atk2");
+      
+      let dmg = this.calcDamage(this.playerEntity, this.enemyEntity, skill);
+      this.enemyEntity.applyDamage(dmg);
+      this.log("SURCHARGE ÉLECTRIQUE : " + dmg + " dégâts !");
+      
+      if(window.playerEntityObj) window.playerEntityObj.playAnim("atk2");
+    }
     else if (type === 'ITEM') {
-      if (this.pPotions > 0) {
-        this.pPotions--;
-        this.pHp = Math.min(this.pMaxHp, this.pHp + 40);
-        this.log("KITS DE RÉPARATION UTILISÉ : +40 HP.");
+      if (this.playerEntity.inventory["potion"] > 0) {
+          this.setTurn('BUSY');
+          this.playerEntity.inventory["potion"]--;
+          this.playerEntity.hp = Math.min(this.playerEntity.maxHp, this.playerEntity.hp + 40);
+          this.log("KITS DE RÉPARATION UTILISÉ : +40 HP.");
       } else {
-        this.log("Inventaire vide !");
-        return this.setTurn('PLAYER');
+          this.log("Inventaire vide !");
+          return this.setTurn('PLAYER');
       }
     }
 
-    this.checkWinLoss('ENEMY');
+    setTimeout(() => this.checkWinLoss('ENEMY'), 1200);
   },
 
-  enemyAI: function() {
+  enemyAI: async function() {
     this.log("L'Entité Alpha prépare sa séquence...");
+
+    // Utilisation de l'IA reconstruite
+    const finalPlan = this.aiEngine.computeTurn(this.enemyEntity, [this.enemyEntity], [this.playerEntity], []);
     
-    setTimeout(() => {
-      // Choix de l'attaque de l'ennemi (3 compétences)
-      const roll = Math.random();
-      
-      if (roll < 0.20 && this.eHp < 50) {
-        // 20% de chance de se soigner s'il est bas en vie
-        const heal = 30;
-        this.eHp = Math.min(this.eMaxHp, this.eHp + heal);
-        this.log(`RÉGÉNÉRATION ALPHA : L'entité récupère ${heal} HP.`);
-        
-      } else if (roll < 0.40) {
-        // 20% de chance d'attaque lourde
-        const dmg = 25 + Math.floor(Math.random() * 10);
-        this.pHp -= dmg;
-        this.log(`DÉCHARGE PLASMA ! Vous subissez ${dmg} dégâts massifs.`);
-        
-      } else {
-        // 60% attaque normale
-        const dmg = 10 + Math.floor(Math.random() * 8);
-        this.pHp -= dmg;
-        this.log(`Laser mineur. Vous perdez ${dmg} HP.`);
-      }
-      
-      this.checkWinLoss('PLAYER');
-    }, 1800);
+    let aiPlan = finalPlan && finalPlan.actions ? finalPlan.actions : [{ type: "wait" }];
+
+        for(const action of aiPlan) {
+        if(action.type === "wait" || !action.skill) {
+            this.log("Alpha termine son tour.");
+            await new Promise(r => setTimeout(r, 1000));
+        } else if (action.skill) {
+            this.enemyEntity.pa -= action.skill.paCost;
+            if (action.skill.type === "healing" || action.skill.power < 0) {
+                let healAmt = Math.abs(action.skill.power);
+                this.enemyEntity.hp = Math.min(this.enemyEntity.maxHp, this.enemyEntity.hp + healAmt);
+                this.log("RÉGÉNÉRATION : +" + healAmt + " HP.");
+            } else {
+                let dmg = this.calcDamage(this.enemyEntity, this.playerEntity, action.skill); 
+                this.playerEntity.applyDamage(dmg);
+                this.log(action.skill.name.toUpperCase() + " ! Vous subissez " + dmg + " dégâts.");
+            }
+            this.updateUI();
+            await new Promise(r => setTimeout(r, 1500));
+        }
+    }
+
+        this.checkWinLoss('PLAYER');
   },
 
   checkWinLoss: function(nextTurn) {
     this.updateUI();
     setTimeout(() => {
-      if (this.eHp <= 0) {
+      if (this.enemyEntity.hp <= 0) {
         this.log("ENTITÉ DÉTRUITE. FIN DU PROTOCOLE.");
         this.enemyMesh.dispose();
         setTimeout(() => this.endCombat(), 2000);
-      } else if (this.pHp <= 0) {
+      } else if (this.playerEntity.hp <= 0) {
         this.log("SYSTÈME CRITIQUE. VOUS ÊTES MORT.");
-        // Relancer la page après 3 secondes
         setTimeout(() => location.reload(), 3000);
       } else {
-        this.setTurn(nextTurn);
+        if(this.turn === 'PLAYER' && this.playerEntity.pa <= 0) {
+          this.setTurn('ENEMY');
+        } else {
+          this.setTurn(nextTurn);
+        }
       }
-    }, 1500);
+    }, 500);
   },
 
   endCombat: function() {
@@ -538,20 +607,26 @@ const COMBAT = {
     window.removeEventListener("keydown", this.boundInputHandler);
     document.getElementById("combatUI").style.display = "none";
     document.getElementById("hud").style.display = "block";
-    
+
     // Redonner le focus au canvas pour reprendre les déplacements fluides
     document.getElementById("renderCanvas").focus();
   }
 };
-// ═════════════════════════════════════════════════════
-//  🚀  POINT D'ENTRÉE
-// ═════════════════════════════════════════════════════
+
+;
+
+;
+
+;
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸš€  POINT D'ENTRÃ‰E
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function init() {
   const canvas  = document.getElementById("renderCanvas");
   const hint    = document.getElementById("loadHint");
   const loader  = document.getElementById("loader");
 
-  hint.textContent = "BabylonJS prêt — Chargement Havok WASM...";
+  hint.textContent = "BabylonJS prÃªt â€” Chargement Havok WASM...";
 
   const engine = new BABYLON.Engine(canvas, true, {
     antialias:             true,
@@ -566,9 +641,9 @@ async function init() {
   } catch (err) {
     console.error(err);
     loader.innerHTML = `<div class="err">
-      ⚠ ERREUR — IMPOSSIBLE DE CHARGER HAVOK<br>
+      âš  ERREUR â€” IMPOSSIBLE DE CHARGER HAVOK<br>
       <span style="color:#475569;font-size:10px">
-        Vérifiez votre connexion internet et rechargez la page.<br>
+        VÃ©rifiez votre connexion internet et rechargez la page.<br>
         ${err.message || ""}
       </span>
     </div>`;
@@ -584,9 +659,9 @@ async function init() {
   canvas.focus();
 }
 
-// ═════════════════════════════════════════════════════
-//  🏗️  CONSTRUCTION DE LA SCÈNE
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ—ï¸  CONSTRUCTION DE LA SCÃˆNE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function buildScene(engine, canvas) {
   const scene       = new BABYLON.Scene(engine);
   scene.clearColor  = P.bg;
@@ -595,22 +670,22 @@ async function buildScene(engine, canvas) {
   scene.fogColor    = P.fog;
   scene.fogDensity  = 0.0080;
 
-  // ── PHYSIQUE HAVOK ─────────────────────────────────
-  // ── Charger Havok dynamiquement ─────────────────────
-  // On injecte le script UMD et on attend qu'il soit prêt
+  // â”€â”€ PHYSIQUE HAVOK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Charger Havok dynamiquement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // On injecte le script UMD et on attend qu'il soit prÃªt
   // avant d'appeler HavokPhysics(), garantissant que le
   // global est disponible peu importe l'ordre de chargement.
   const havok = await loadHavok();
   const plugin = new BABYLON.HavokPlugin(true, havok);
   scene.enablePhysics(new BABYLON.Vector3(0, CFG.gravity, 0), plugin);
 
-  // ── LUMIÈRES ───────────────────────────────────────
+  // â”€â”€ LUMIÃˆRES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   buildLights(scene);
 
-  // ── CARTE ──────────────────────────────────────────
+  // â”€â”€ CARTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   buildMap(scene);
 
-  // ── Rendre tous les éléments de la carte "Solides" pour la caméra ──
+  // â”€â”€ Rendre tous les Ã©lÃ©ments de la carte "Solides" pour la camÃ©ra â”€â”€
   scene.collisionsEnabled = true;
   scene.meshes.forEach(m => {
       // Si ce n'est pas le joueur, on active la vraie collision
@@ -619,46 +694,46 @@ async function buildScene(engine, canvas) {
       }
   });
 
-  // ── PERSONNAGE ─────────────────────────────────────
+  // â”€â”€ PERSONNAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const player = await buildPlayer(scene);
 
-  // ── CAMÉRA 3ÈME PERSONNE ──────────────────────────
+  // â”€â”€ CAMÃ‰RA 3ÃˆME PERSONNE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const camera = buildCamera(scene, canvas, player.mesh);
 
-  // ── INPUTS ─────────────────────────────────────────
+  // â”€â”€ INPUTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   bindInput();
 
-  // ── BOUCLE ─────────────────────────────────────────
+  // â”€â”€ BOUCLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   scene.registerBeforeRender(() => loop(scene, player, camera, engine));
 
   return scene;
 }
 
-// ═════════════════════════════════════════════════════
-//  💡  LUMIÈRES
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ’¡  LUMIÃˆRES
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function buildLights(scene) {
-  // Hémisphérique — ambiance globale froide
+  // HÃ©misphÃ©rique â€” ambiance globale froide
   const hemi        = new BABYLON.HemisphericLight("hemi", BABYLON.Vector3.Up(), scene);
   hemi.intensity    = 0.28;
   hemi.diffuse      = new BABYLON.Color3(0.18, 0.28, 0.50);
   hemi.groundColor  = new BABYLON.Color3(0.02, 0.03, 0.06);
   hemi.specular     = BABYLON.Color3.Black();
 
-  // Directionnelle — lumière lunaire froide
+  // Directionnelle â€” lumiÃ¨re lunaire froide
   const moon       = new BABYLON.DirectionalLight("moon", new BABYLON.Vector3(-0.4, -1.0, -0.35), scene);
   moon.intensity   = 0.60;
   moon.diffuse     = new BABYLON.Color3(0.60, 0.72, 1.00);
   moon.specular    = new BABYLON.Color3(0.08, 0.14, 0.28);
   moon.position    = new BABYLON.Vector3(25, 40, -15);
 
-  // Points ARIA — néons bleus électriques sur les bâtiments
+  // Points ARIA â€” nÃ©ons bleus Ã©lectriques sur les bÃ¢timents
   [
-    { p: [  0,  6,  18], r: 20, i: 110 },  // Bâtiment principal
+    { p: [  0,  6,  18], r: 20, i: 110 },  // BÃ¢timent principal
     { p: [-15,  5,  12], r: 15, i:  75 },  // Aile gauche
     { p: [ 15,  5,  12], r: 15, i:  75 },  // Aile droite
-    { p: [-22,  4,  -6], r: 14, i:  60 },  // Bibliothèque
-    { p: [  0,  2, -30], r: 10, i:  35 },  // Entrée
+    { p: [-22,  4,  -6], r: 14, i:  60 },  // BibliothÃ¨que
+    { p: [  0,  2, -30], r: 10, i:  35 },  // EntrÃ©e
     { p: [  8,  3,  -4], r:  8, i:  30 },  // Module droit
   ].forEach(({ p: [x, y, z], r, i }, idx) => {
     const pt      = new BABYLON.PointLight(`pt${idx}`, new BABYLON.Vector3(x, y, z), scene);
@@ -669,9 +744,9 @@ function buildLights(scene) {
   });
 }
 
-// ═════════════════════════════════════════════════════
-//  🧱  MATÉRIAU SIMPLE
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ§±  MATÃ‰RIAU SIMPLE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function mkMat(name, scene, diff, emit = null) {
   const m         = new BABYLON.StandardMaterial(name, scene);
   m.diffuseColor  = diff;
@@ -681,9 +756,9 @@ function mkMat(name, scene, diff, emit = null) {
   return m;
 }
 
-// ═════════════════════════════════════════════════════
-//  🗺️  CARTE DU CAMPUS
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ—ºï¸  CARTE DU CAMPUS
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function buildMap(scene) {
   const mGround = mkMat("mGr", scene, P.ground);
   const mA      = mkMat("mA",  scene, P.bldA);
@@ -692,7 +767,7 @@ function buildMap(scene) {
   const mGlow   = mkMat("mGl", scene, P.glow,  P.glowE);
   const mProp   = mkMat("mPr", scene, P.prop);
 
-  // ── Sol ────────────────────────────────────────────
+  // â”€â”€ Sol â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const ground      = BABYLON.MeshBuilder.CreateGround("ground",
     { width: 80, height: 80, subdivisions: 2 }, scene);
   ground.material   = mGround;
@@ -700,8 +775,8 @@ function buildMap(scene) {
   new BABYLON.PhysicsAggregate(ground, BABYLON.PhysicsShapeType.BOX,
     { mass: 0, restitution: 0, friction: 0.90 }, scene);
 
-  // ── Helpers ────────────────────────────────────────
-  // Boîte statique avec physique
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // BoÃ®te statique avec physique
   function box(name, w, h, d, x, y, z, m) {
     const b       = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
     b.position.set(x, y, z);
@@ -711,7 +786,7 @@ function buildMap(scene) {
       { mass: 0, restitution: 0, friction: 0.65 }, scene);
     return b;
   }
-  // Bande lumineuse déco (pas de physique)
+  // Bande lumineuse dÃ©co (pas de physique)
   function glow(name, w, h, d, x, y, z) {
     const g       = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
     g.position.set(x, y, z);
@@ -720,7 +795,7 @@ function buildMap(scene) {
     return g;
   }
 
-  // ══ BÂTIMENT PRINCIPAL — fond centre ══════════════
+  // â•â• BÃ‚TIMENT PRINCIPAL â€” fond centre â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   box("bMain",     22, 9.0, 8.5,    0,  4.5,  22, mA);
   box("bMainTop",  22, 1.8, 9.2,    0, 10.0,  22, mB);
   glow("gM1", 20, 0.10, 0.08,  0, 9.60, 18.26);
@@ -732,27 +807,27 @@ function buildMap(scene) {
   sign.material  = mkMat("mSgn", scene, new BABYLON.Color3(0.08, 0.18, 0.38),
                           new BABYLON.Color3(0.22, 0.60, 1.00));
 
-  // ══ AILE GAUCHE ════════════════════════════════════
+  // â•â• AILE GAUCHE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   box("bLeft",     9, 7.0, 17,   -16, 3.5, 13, mB);
   box("bLeftTop",  9, 1.2, 18,   -16, 7.6, 13, mA);
   glow("gL1", 0.10, 5.0, 0.10, -11.55, 5.5, 13);
 
-  // ══ AILE DROITE ════════════════════════════════════
+  // â•â• AILE DROITE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   box("bRight",    9, 7.0, 17,    16, 3.5, 13, mB);
   box("bRightTop", 9, 1.2, 18,    16, 7.6, 13, mA);
   glow("gR1", 0.10, 5.0, 0.10,  11.55, 5.5, 13);
 
-  // ══ BIBLIOTHÈQUE — côté gauche ═════════════════════
+  // â•â• BIBLIOTHÃˆQUE â€” cÃ´tÃ© gauche â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   box("bLib",      13, 6.0, 11,  -22, 3.0,  -6, mC);
   box("bLibTop",   13, 0.9, 12,  -22, 6.5,  -6, mB);
   glow("gLb1", 11, 0.10, 0.08, -22, 6.10, -0.50);
   glow("gLb2", 11, 0.10, 0.08, -22, 2.80, -0.50);
 
-  // ══ MODULE — côté droit ════════════════════════════
+  // â•â• MODULE â€” cÃ´tÃ© droit â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   box("bMod",      7, 5.0, 7,    20, 2.5,  -4, mB);
   glow("gMd", 0.10, 3.2, 0.08, 16.56, 3.5, -4);
 
-  // ══ PYLÔNES D'ENTRÉE ══════════════════════════════
+  // â•â• PYLÃ”NES D'ENTRÃ‰E â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   [-5, 5].forEach((x, i) => {
     const cyl   = BABYLON.MeshBuilder.CreateCylinder(`pyl${i}`,
       { height: 5.5, diameter: 0.72, tessellation: 10 }, scene);
@@ -769,7 +844,7 @@ function buildMap(scene) {
     ring.isPickable = false;
   });
 
-  // ══ ESCALIER + PLATEFORME (gauche) ═══════════════
+  // â•â• ESCALIER + PLATEFORME (gauche) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   [
     [5, 0.28, 3.2, -8, 0.14, 10.0],
     [5, 0.28, 3.2, -8, 0.42, 11.4],
@@ -779,7 +854,7 @@ function buildMap(scene) {
   box("plat", 5, 0.28, 5.5, -8, 1.26, 15.8, mA);
   glow("gPlat", 5, 0.06, 0.06, -8, 1.44, 13.0);
 
-  // ══ BANCS — cour centrale ═════════════════════════
+  // â•â• BANCS â€” cour centrale â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   [[-6,-10],[6,-10],[-6,-18],[6,-18]].forEach(([x, z], i) => {
     // Assise
     const seat    = BABYLON.MeshBuilder.CreateBox(`bseat${i}`,
@@ -798,11 +873,11 @@ function buildMap(scene) {
     });
   });
 
-  // ══ CAISSES — décor ════════════════════════════════
+  // â•â• CAISSES â€” dÃ©cor â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   [
     [ 8.0, 0.50, -5.0],
     [ 9.5, 0.43, -4.5],
-    [ 8.5, 1.36, -5.0],   // caisse empilée
+    [ 8.5, 1.36, -5.0],   // caisse empilÃ©e
     [-8.0, 0.50, -8.0],
     [-9.5, 0.43, -7.2],
   ].forEach(([x, y, z], i) => {
@@ -815,7 +890,7 @@ function buildMap(scene) {
       { mass: 0, restitution: 0.05, friction: 0.55 }, scene);
   });
 
-  // ══ MURS INVISIBLES — bordure du campus ═══════════
+  // â•â• MURS INVISIBLES â€” bordure du campus â•â•â•â•â•â•â•â•â•â•â•
   [
     [80, 5, 1,   0, 2.5, -40],
     [80, 5, 1,   0, 2.5,  40],
@@ -829,9 +904,9 @@ function buildMap(scene) {
     wall.isPickable    = true;   // Pickable pour le raycast sol
     new BABYLON.PhysicsAggregate(wall, BABYLON.PhysicsShapeType.BOX, { mass: 0 }, scene);
   });
-  // ══ ENNEMI (Entité Alpha) ═══════════════════════════
+  // â•â• ENNEMI (EntitÃ© Alpha) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const enemy = BABYLON.MeshBuilder.CreateBox("enemyObj", {size: 1.5}, scene);
-  enemy.position.set(0, 1.5, -15); // Placé devant le joueur au démarrage
+  enemy.position.set(0, 1.5, -15); // PlacÃ© devant le joueur au dÃ©marrage
   const mEnemy = new BABYLON.StandardMaterial("mEnemy", scene);
   mEnemy.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
   mEnemy.emissiveColor = new BABYLON.Color3(0.5, 0.0, 0.0);
@@ -845,15 +920,15 @@ function buildMap(scene) {
     enemy.rotation.y += 0.02;
   });
   
-  // On le stocke globalement pour le détecter
+  // On le stocke globalement pour le dÃ©tecter
   scene.enemyAlpha = enemy;
 }
 
-// ═════════════════════════════════════════════════════
-//  🧍  PERSONNAGE
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ§  PERSONNAGE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function buildPlayer(scene) {
-  // ── Corps physique (capsule invisible) ─────────────
+  // â”€â”€ Corps physique (capsule invisible) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const mesh          = BABYLON.MeshBuilder.CreateCapsule("playerPhys", {
     height:          CFG.capHeight,
     radius:          CFG.capRadius,
@@ -886,12 +961,12 @@ async function buildPlayer(scene) {
   // Position pour aligner les pieds sur le bas de la capsule
   hero.position.y = -CFG.capHeight / 2;
 
-  // On détruit les animations internes pour repartir à zéro
+  // On dÃ©truit les animations internes pour repartir Ã  zÃ©ro
   if (result.animationGroups) {
       result.animationGroups.forEach(ag => ag.dispose());
   }
 
-  // ── Système d'Animations ──
+  // â”€â”€ SystÃ¨me d'Animations â”€â”€
   const animGroupsObj = {};
   let currentAnimation = null;
 
@@ -945,10 +1020,12 @@ async function buildPlayer(scene) {
   await loadAnimation("annim/jump/", "MM_Fall_Loop.glb", "fall", true);
   await loadAnimation("annim/jump/", "MM_Land.glb", "land", false);
 
-  // IDLE (Nouvelle position de base demandée : Lévitation)
-  await loadAnimation("annim/", "AS_Levitating.glb", "idle", true);
-  
-  // On lance l'idle au démarrage
+  // IDLE 
+  await loadAnimation("annim/MM_Idle/", "MM_Idle.glb", "idle", true);
+
+  // COMBAT
+  await loadAnimation("annim/", "AS_StaffStrike.glb", "atk1", false);
+  await loadAnimation("annim/", "AS_FireballSpell.glb", "atk2", false);
   if (animGroupsObj["idle"]) {
       currentAnimation = animGroupsObj["idle"].group;
       currentAnimation.play(true);
@@ -969,7 +1046,7 @@ async function buildPlayer(scene) {
       }
   }
 
-  // Permet de libérer le state Land si on avait hard-lock (pas besoin ici)
+  // Permet de libÃ©rer le state Land si on avait hard-lock (pas besoin ici)
   if(animGroupsObj["land"]) {
       animGroupsObj["land"].group.onAnimationGroupEndObservable.add((grp) => {
           if(grp === currentAnimation) {
@@ -978,21 +1055,32 @@ async function buildPlayer(scene) {
       });
   }
 
+  // Fin du combat: Retourner Ã  Idle
+  ["atk1", "atk2"].forEach(atk => {
+      if(animGroupsObj[atk]) {
+          animGroupsObj[atk].group.onAnimationGroupEndObservable.add((grp) => {
+              if(grp === currentAnimation) {
+                  playAnim("idle");
+              }
+          });
+      }
+  });
+
   return { mesh, agg, visual, playAnim, stopAnim, animGroupsObj, get currentAnimation() { return currentAnimation; } };
 }
 
-// ═════════════════════════════════════════════════════
-//  📷  CAMÉRA 3ÈME PERSONNE
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ“·  CAMÃ‰RA 3ÃˆME PERSONNE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function buildCamera(scene, canvas, playerMesh) {
   const cam = new BABYLON.ArcRotateCamera("cam3P",
     CFG.camAlpha, CFG.camBeta, CFG.camRadius,
     playerMesh.position.clone(), scene);
 
-  cam.minZ                  = 0.1; // Évite de voir à travers le perso quand on est très proche
+  cam.minZ                  = 0.1; // Ã‰vite de voir Ã  travers le perso quand on est trÃ¨s proche
   cam.maxZ                  = 400;
   
-  // NOUVEAU: Empêcher la caméra de traverser les murs
+  // NOUVEAU: EmpÃªcher la camÃ©ra de traverser les murs
   cam.checkCollisions       = true; 
   cam.collisionRadius       = new BABYLON.Vector3(0.4, 0.4, 0.4); 
 
@@ -1002,7 +1090,7 @@ function buildCamera(scene, canvas, playerMesh) {
   cam.upperBetaLimit        = Math.PI / 2.1;
   cam.wheelDeltaPercentage  = 0.022;
   
-  // Rend la caméra un poil plus lourde/cinématique sous la souris
+  // Rend la camÃ©ra un poil plus lourde/cinÃ©matique sous la souris
   cam.angularSensibilityX   = 3000; 
   cam.angularSensibilityY   = 3000;
   cam.panningSensibility    = 0;
@@ -1015,12 +1103,12 @@ function buildCamera(scene, canvas, playerMesh) {
 
   return cam;
 }
-// ═════════════════════════════════════════════════════
-//  ⌨️  INPUTS
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  âŒ¨ï¸  INPUTS
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function bindInput() {
   window.addEventListener("keydown", e => {
-    // Si la touche est déjà enfoncée (répétition auto du clavier), on ignore
+    // Si la touche est dÃ©jÃ  enfoncÃ©e (rÃ©pÃ©tition auto du clavier), on ignore
     if (e.repeat) return;
     
     G.keys[e.code] = true;
@@ -1036,9 +1124,9 @@ function bindInput() {
   });
 }
 
-// ═════════════════════════════════════════════════════
-//  🌍  DÉTECTION DU SOL (raycast)
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸŒ  DÃ‰TECTION DU SOL (raycast)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function groundCheck(scene, mesh) {
   // Origine : juste au-dessus du bas du capsule
   const origin = new BABYLON.Vector3(
@@ -1056,21 +1144,21 @@ function groundCheck(scene, mesh) {
   return !!(hit?.hit);
 }
 
-// ═════════════════════════════════════════════════════
-//  🔄  BOUCLE PRINCIPALE
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ”„  BOUCLE PRINCIPALE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function loop(scene, player, camera, engine) {
 
-  // ── GESTION ÉTAT COMBAT ───────────────────────────
+  // â”€â”€ GESTION Ã‰TAT COMBAT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (COMBAT.active) {
-    // Si on est en combat, on bloque la mise à jour des contrôles et de la caméra normale
+    // Si on est en combat, on bloque la mise Ã  jour des contrÃ´les et de la camÃ©ra normale
     return; 
   }
 
-  // ── DÉTECTION ENNEMI (Lancement du combat) ────────
+  // â”€â”€ DÃ‰TECTION ENNEMI (Lancement du combat) â”€â”€â”€â”€â”€â”€â”€â”€
   if (scene.enemyAlpha && !scene.enemyAlpha.isDisposed()) {
     const dist = BABYLON.Vector3.Distance(player.mesh.position, scene.enemyAlpha.position);
-    if (dist < 3.0) { // Si le joueur s'approche à moins de 3 mètres
+    if (dist < 3.0) { // Si le joueur s'approche Ã  moins de 3 mÃ¨tres
       COMBAT.init(scene, camera, player, scene.enemyAlpha);
       return;
     }
@@ -1079,27 +1167,27 @@ function loop(scene, player, camera, engine) {
   const body = agg.body;
   const vel  = body.getLinearVelocity();
 
-  // ── Forcer zéro vitesse angulaire chaque frame ────
+  // â”€â”€ Forcer zÃ©ro vitesse angulaire chaque frame â”€â”€â”€â”€
   // Garantit que le personnage ne bascule jamais
   body.setAngularVelocity(BABYLON.Vector3.Zero());
 
-  // ── Gérer le Cooldown du Saut (empêche double jump) ─
+  // â”€â”€ GÃ©rer le Cooldown du Saut (empÃªche double jump) â”€
   if (G.jumpCooldown > 0) {
       G.jumpCooldown -= engine.getDeltaTime();
   }
 
-  // ── Détection sol ─────────────────────────────────
+  // â”€â”€ DÃ©tection sol â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   G.grounded = groundCheck(scene, mesh);
   
-  // 🔊 CORRECTIF: Sécurité au décollage
-  // Le perso commence à monter mais le raycast touche encore le sol pendant 5 frames.
-  // On force l'état "en l'air" au tout début du saut pour ne pas couper son animation par une course.
-  if (G.jumpCooldown > 150) {
+  // ðŸ”Š CORRECTIF: SÃ©curitÃ© au dÃ©collage et de saut en l'air
+  // On force l'Ã©tat "en l'air" au tout dÃ©but du saut ou quand la vÃ©locitÃ© verticale est trÃ¨s forte (montÃ©e rapide ou chute).
+  // Ã‡a empÃªche l'animation de marche si on avance pendant la retombÃ©e du saut.
+  if (G.jumpCooldown > 100 || Math.abs(vel.y) > 1.0) {
       G.grounded = false;
   }
 
-  // ── Direction relative à la caméra ────────────────
-  // "Avant" = vecteur de la caméra vers le joueur, projeté sur XZ
+  // â”€â”€ Direction relative Ã  la camÃ©ra â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // "Avant" = vecteur de la camÃ©ra vers le joueur, projetÃ© sur XZ
   const camFwd = BABYLON.Vector3.Normalize(new BABYLON.Vector3(
     mesh.position.x - camera.position.x,
     0,
@@ -1110,7 +1198,7 @@ function loop(scene, player, camera, engine) {
     BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), camFwd),
   );
 
-  // ── Lire les touches (ZQSD AZERTY = KeyW/KeyA/KeyS/KeyD sur e.code) ─
+  // â”€â”€ Lire les touches (ZQSD AZERTY = KeyW/KeyA/KeyS/KeyD sur e.code) â”€
   G.moveDir.setAll(0);
   if (G.keys["KeyW"] || G.keys["ArrowUp"])    G.moveDir.addInPlace(camFwd);
   if (G.keys["KeyS"] || G.keys["ArrowDown"])  G.moveDir.subtractInPlace(camFwd);
@@ -1123,29 +1211,29 @@ function loop(scene, player, camera, engine) {
       G.lastMoveDir.copyFrom(G.moveDir);
   }
 
-  // ── Inertie et Vitesse ────────────────────────────
+  // â”€â”€ Inertie et Vitesse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Vitesse cible: si on bouge = (si runReq = Jog, sinon Walk), sinon 0
   const targetSpeed = moving ? (G.runReq ? CFG.moveSpeedJog : CFG.moveSpeedWalk) : 0;
-  // Lerp de la vitesse actuelle (0.15 = inertie modérée)
+  // Lerp de la vitesse actuelle (0.15 = inertie modÃ©rÃ©e)
   G.currentSpeed = BABYLON.Scalar.Lerp(G.currentSpeed, targetSpeed, 0.15); 
   
-  // Forcer à 0 complet si on est presque arrêté pour éviter la marche infinie de M.Jackson
+  // Forcer Ã  0 complet si on est presque arrÃªtÃ© pour Ã©viter la marche infinie de M.Jackson
   if (G.currentSpeed < 0.2) {
       G.currentSpeed = 0;
   }
   
-  // Utiliser la dernière direction connue pour glisser doucement quand on lâche les touches
+  // Utiliser la derniÃ¨re direction connue pour glisser doucement quand on lÃ¢che les touches
   const actualDir = moving ? G.moveDir : G.lastMoveDir;
 
-  // ── Appliquer la vélocité horizontale ─────────────
-  // La composante Y (gravité/saut) est conservée telle quelle
+  // â”€â”€ Appliquer la vÃ©locitÃ© horizontale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // La composante Y (gravitÃ©/saut) est conservÃ©e telle quelle
   body.setLinearVelocity(new BABYLON.Vector3(
     actualDir.x * G.currentSpeed,
     vel.y,
     actualDir.z * G.currentSpeed,
   ));
 
-  // ── Saut (autorisé uniquement si au sol) ──────────
+  // â”€â”€ Saut (autorisÃ© uniquement si au sol) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (G.jumpReq && G.grounded && G.jumpCooldown <= 0) {
     player.playAnim("jump");
     body.setLinearVelocity(new BABYLON.Vector3(
@@ -1154,19 +1242,19 @@ function loop(scene, player, camera, engine) {
       actualDir.z * G.currentSpeed,
     ));
     G.isJumping = true;
-    G.grounded = false; // Désactiver sol manuellement pendant 1 frame au moins
+    G.grounded = false; // DÃ©sactiver sol manuellement pendant 1 frame au moins
     G.jumpCooldown = 300; // Bloque les autres sauts pendant 300ms
   }
   G.jumpReq = false;
 
-  // ── Synchroniser le visuel sur le corps physique ──
+  // â”€â”€ Synchroniser le visuel sur le corps physique â”€â”€
   visual.position.copyFrom(mesh.position);
 
-  // ── ANIMATIONS ET ROTATION ────────────────────────
+  // â”€â”€ ANIMATIONS ET ROTATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (!G.grounded) {
       if (vel.y < -0.1) {
           player.playAnim("fall");
-      } else if (G.isJumping) {
+      } else if (G.isJumping || vel.y > 0.1) {
           player.playAnim("jump");
       }
   } else {
@@ -1199,11 +1287,11 @@ function loop(scene, player, camera, engine) {
           if (G.lastVelY < -2.0) {
               player.playAnim("land");
           } else {
-              // Si on est à l'arrêt complet (Vrai 0.00 !)
+              // Si on est Ã  l'arrÃªt complet (Vrai 0.00 !)
               const isLanding = player.currentAnimation === player.animGroupsObj["land"]?.group;
               if (!isLanding) {
                   if (player.animGroupsObj["idle"]) {
-                      player.playAnim("idle"); // On rejoue le beau Idle de départ avec fondu !
+                      player.playAnim("idle"); // On rejoue le beau Idle de dÃ©part avec fondu !
                   }
               }
           }
@@ -1211,7 +1299,7 @@ function loop(scene, player, camera, engine) {
   }
   G.lastVelY = vel.y;
 
-  // ── Rotation smooth du personnage vers la caméra ──
+  // â”€â”€ Rotation smooth du personnage vers la camÃ©ra â”€â”€
   // Pour que les animations directionnelles collent au mouvement
   if (G.currentSpeed > 0.5) {
     const target = -camera.alpha - Math.PI / 2;
@@ -1222,20 +1310,20 @@ function loop(scene, player, camera, engine) {
     visual.rotation.y     = G.facing;
   }
 
-  // ── Caméra suit le joueur avec lerp ───────────────
-  // On cible un peu plus haut (1.1 au lieu de 0.55) pour viser le haut du dos/épaules
+  // â”€â”€ CamÃ©ra suit le joueur avec lerp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // On cible un peu plus haut (1.1 au lieu de 0.55) pour viser le haut du dos/Ã©paules
   const camTarget = mesh.position.add(new BABYLON.Vector3(0, 1.1, 0));
   camera.target   = BABYLON.Vector3.Lerp(camera.target, camTarget, CFG.camLerp);
 
-  // ── Zoom dynamique et cinématique (FOV) ───────────
+  // â”€â”€ Zoom dynamique et cinÃ©matique (FOV) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Au lieu d'utiliser un boolean binaire (moving), on utilise la proportion de vitesse 
-  // pour dézoomer plus on va vite (jusqu'à speedJog)
+  // pour dÃ©zoomer plus on va vite (jusqu'Ã  speedJog)
   const speedRatio = Math.min(G.currentSpeed / CFG.moveSpeedJog, 1.0);
   const targetFov = BABYLON.Scalar.Lerp(CFG.camFovIdle, CFG.camFovMove, speedRatio);
   
   camera.fov = BABYLON.Scalar.Lerp(camera.fov, targetFov, CFG.camFovLerp);
 
-  // ── Mise à jour HUD ───────────────────────────────
+  // â”€â”€ Mise Ã  jour HUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const p   = mesh.position;
   const spd = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
   document.getElementById("px").textContent  = p.x.toFixed(2);
@@ -1249,14 +1337,14 @@ function loop(scene, player, camera, engine) {
     if (moving) { sv.textContent = "EN MOUVEMENT"; sv.className = "val grn"; }
     else        { sv.textContent = "AU SOL";        sv.className = "val grn"; }
   } else {
-    if (vel.y > 0.5) { sv.textContent = "SAUT ↑";    sv.className = "val org"; }
-    else             { sv.textContent = "CHUTE ↓";   sv.className = "val red"; }
+    if (vel.y > 0.5) { sv.textContent = "SAUT â†‘";    sv.className = "val org"; }
+    else             { sv.textContent = "CHUTE â†“";   sv.className = "val red"; }
   }
 }
 
-// ═════════════════════════════════════════════════════
-//  ▶  DÉMARRAGE
-// ═════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  â–¶  DÃ‰MARRAGE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 init();
 
 </script>
