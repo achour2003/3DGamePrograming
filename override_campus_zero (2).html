@@ -438,7 +438,7 @@ function restoreOccludingMeshes() {
   G.occludingMeshes.clear();
 }
 
-function resolveCameraObstruction(scene, camera, target, playerMesh) {
+function resolveCameraObstruction(scene, camera, target, playerMesh, desiredRadius) {
   const toCamera = camera.position.subtract(target);
   const dist = toCamera.length();
   if (dist < 0.001) return false;
@@ -448,6 +448,8 @@ function resolveCameraObstruction(scene, camera, target, playerMesh) {
     if (!m || m.isDisposed()) return false;
     if (m === playerMesh) return false;
     if (m.name.startsWith("player")) return false;
+    // On ignore le sol pour Ã©viter le stuttering insupportable quand on regarde vers le haut
+    if (m.name.toLowerCase().includes("ground") || m.name.toLowerCase().includes("sol")) return false;
     return m.isPickable && m.checkCollisions;
   });
 
@@ -457,7 +459,7 @@ function resolveCameraObstruction(scene, camera, target, playerMesh) {
     const safeRadius = BABYLON.Scalar.Clamp(
       hit.distance - CFG.camObstructionBuffer,
       CFG.camMinR,
-      G.cameraUserRadius,
+      desiredRadius,
     );
     camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, CFG.camCutInSpeed);
 
@@ -467,7 +469,7 @@ function resolveCameraObstruction(scene, camera, target, playerMesh) {
     }
     return true;
   } else {
-    camera.radius = BABYLON.Scalar.Lerp(camera.radius, G.cameraUserRadius, CFG.camRestoreSpeed);
+    camera.radius = BABYLON.Scalar.Lerp(camera.radius, desiredRadius, CFG.camRestoreSpeed);
     return false;
   }
 }
@@ -1428,14 +1430,15 @@ function buildCamera(scene, canvas, playerMesh) {
   cam.minZ                  = 0.1; // Ã‰vite de voir Ã  travers le perso quand on est trÃ¨s proche
   cam.maxZ                  = 400;
   
-  // NOUVEAU: EmpÃªcher la camÃ©ra de traverser les murs
-  cam.checkCollisions       = true; 
-  cam.collisionRadius       = new BABYLON.Vector3(0.4, 0.4, 0.4); 
+  // NOUVEAU: EmpÃªcher la camÃ©ra de traverser les murs mais on dÃ©sactive checkCollisions direct de babylon
+  // qui bloque la cam. La fonction custom resolveCameraObstruction s'occupe de zoomer dans le mur
+  cam.checkCollisions       = false; 
+  // cam.collisionRadius       = new BABYLON.Vector3(0.4, 0.4, 0.4); 
 
   cam.lowerRadiusLimit      = CFG.camMinR;
   cam.upperRadiusLimit      = CFG.camMaxR;
-  cam.lowerBetaLimit        = 0.10;
-  cam.upperBetaLimit        = Math.PI / 2.1;
+  cam.lowerBetaLimit        = 0.05; // Autoriser la camÃ©ra Ã  bien monter quand on bouge la souris vers le haut
+  cam.upperBetaLimit        = Math.PI - 0.1; // Autoriser a descendre presque tout en bas
   cam.wheelDeltaPercentage  = 0.022;
   
   // Rend la camÃ©ra un poil plus lourde/cinÃ©matique sous la souris
@@ -1739,10 +1742,26 @@ function loop(scene, player, camera, engine) {
   const camTarget = mesh.position.add(new BABYLON.Vector3(0, 1.1, 0));
   camera.target   = BABYLON.Vector3.Lerp(camera.target, camTarget, CFG.camLerp);
 
-  const obstructed = resolveCameraObstruction(scene, camera, camTarget, mesh);
-  if (!obstructed) {
-    G.cameraUserRadius = camera.radius;
+  // Zoom de 20% quand on court
+  const isRunning = moving && G.runReq;
+  const targetZoomFactor = isRunning ? 0.8 : 1.0;
+  G.currentZoomFactor = BABYLON.Scalar.Lerp(G.currentZoomFactor || 1.0, targetZoomFactor, 0.05);
+
+  // GÃ©rer l'input molette manuellement sans s'emmeler avec le lerp
+  // Si camera.radius diffÃ¨re violemment de notre derniÃ¨re modification, c'est un scroll souris.
+  if (G.lastAppliedRadius !== undefined && Math.abs(camera.radius - G.lastAppliedRadius) > 0.01) {
+      const scrollDelta = camera.radius - G.lastAppliedRadius;
+      // On rÃ©applique ce delta Ã  notre userRadius
+      G.cameraUserRadius += scrollDelta / G.currentZoomFactor;
   }
+  G.cameraUserRadius = BABYLON.Scalar.Clamp(G.cameraUserRadius, CFG.camMinR, CFG.camMaxR);
+
+  const desiredRadius = G.cameraUserRadius * G.currentZoomFactor;
+  
+  const obstructed = resolveCameraObstruction(scene, camera, camTarget, mesh, desiredRadius);
+  
+  // RÃ©fÃ©rence de la fin du modificateur de camÃ©ra (aprÃ¨s tous les lerps et offsets)
+  G.lastAppliedRadius = camera.radius;
 
   // â”€â”€ Zoom dynamique et cinÃ©matique (FOV) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Au lieu d'utiliser un boolean binaire (moving), on utilise la proportion de vitesse 
