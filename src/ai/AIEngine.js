@@ -57,8 +57,10 @@ export class AIEngine {
         // ==========================================
         // 4. COUCHE 2 : ÉVALUATEUR TACTIQUE
         // ==========================================
+        // Construit le gameState pour les Utility Rules du Boss
+        const gameState = { playerParty, allies };
         // Note et trie mathématiquement toutes les séquences
-        const scoredPlans = this.evaluator.evaluatePlans(possiblePlans, enemy, playerHistory);
+        const scoredPlans = this.evaluator.evaluatePlans(possiblePlans, enemy, playerHistory, gameState);
 
         // ==========================================
         // 5. COUCHE 3 : CONTRÔLEUR DE PERSONNALITÉ
@@ -80,9 +82,9 @@ export class AIEngine {
         // Enregistre ce plan pour activer le Malus Anti-Robot au prochain tour
         enemy.lastPlan = finalPlan;
         
-        // Déduit virtuellement les PA (la boucle de gameplay graphique l'animera plus tard)
-        if (finalPlan.totalCost) {
-            enemy.consumePA(finalPlan.totalCost);
+        // Applique l'état simulé des PA à l'entité (prend en compte dépenses, coûts "all" et gains)
+        if (finalPlan.currentPa !== undefined) {
+            enemy.pa = finalPlan.currentPa;
         }
     }
 }

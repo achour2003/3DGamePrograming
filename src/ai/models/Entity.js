@@ -11,9 +11,9 @@
         this.spd = config.spd || 10;
 
         // --- Gestion des PA (Points d'Action) ---
-        this.maxPa = config.maxPa || 5;
-        this.pa = config.pa || this.maxPa;
-        this.paRegen = config.paRegen || 3; // PA récupérés par tour
+        this.maxPa = config.maxPa || 6; // Strictement limité à 6
+        this.pa = config.pa !== undefined ? config.pa : 0; // Le combat commence à 0 PA
+        this.paRegen = config.paRegen || 0; // Plus de regen passive de base, les PA se gagnent en action
 
         // --- Jauge de Rupture (Break / Stability) ---
         this.breakGauge = config.breakGauge || 0;
@@ -57,6 +57,11 @@
             return true;
         }
         return false;
+    }
+
+    // Gagner des PA (exemple: après une attaque de base ou un parry parfait)
+    gainPA(amount) {
+        this.pa = Math.min(this.maxPa, this.pa + amount);
     }
 
     // ==========================================

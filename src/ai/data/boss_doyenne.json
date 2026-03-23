@@ -1,0 +1,57 @@
+{
+    "id": "boss_doyenne_01",
+    "name": "L'IA Doyenne",
+    "ai_level": 4,
+    "max_pa": 6,
+    "pa": 0,
+    "stability_max": 500,
+    "stats": {
+        "hp": 3000,
+        "atk": 150,
+        "def": 200,
+        "spd": 15
+    },
+    "weaknesses": {
+        "hack": 1.5
+    },
+    "resistances": {
+        "physical": 0.3,
+        "electric": 0.5
+    },
+    "utility_rules": [
+        {
+            "priority": 1000,
+            "condition": "self.hp_percent < 0.3",
+            "action": "use_item:Patch de Sécurité"
+        },
+        {
+            "priority": 500,
+            "condition": "target.pa >= 5",
+            "action": "skill:Exclusion Définitive"
+        }
+    ],
+    "skills": [
+        {
+            "id": "Blâme Académique",
+            "name": "Blâme Académique",
+            "paCost": 0,
+            "paGain": 2,
+            "power": 120,
+            "targetType": "single",
+            "costType": "fixed",
+            "comboTags": ["builder", "opener"]
+        },
+        {
+            "id": "Exclusion Définitive",
+            "name": "Exclusion Définitive",
+            "paCost": 3,
+            "paGain": 0,
+            "power": 120,
+            "targetType": "single",
+            "costType": "all",
+            "exponentialScaling": 1.3,
+            "comboTags": ["finisher", "unblockable", "burst"]
+        }
+    ],
+    "phases": []
+}

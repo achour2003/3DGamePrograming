@@ -430,7 +430,7 @@ const COMBAT = {
     
     // Init Entities via config Object conforme à src/ai/models/Entity.js
     this.playerEntity = new Entity({
-        id: "hero1", name: "Player", hp: 100, maxHp: 100, maxPa: 4, pa: 4, atk: 15, def: 5
+        id: "hero1", name: "Player", hp: 1000, maxHp: 1000, maxPa: 4, pa: 4, atk: 30, def: 5
     });
     // Remplissage Array Skills
     this.playerEntity.skills = [
@@ -441,7 +441,7 @@ const COMBAT = {
     
     this.enemyEntity = EnemyFactory.fromJSON({
         id: "alpha1", name: "Entité Alpha", level: 1,
-        stats: { hp: 120, atk: 15, def: 5 },
+        stats: { hp: 1440, atk: 37.5, def: 5 },
         max_pa: 3, stability_max: 100,
         traits: ["aggressive", "opportunist"],
         jobClass: "monster",

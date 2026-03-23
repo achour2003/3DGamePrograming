@@ -15,7 +15,8 @@
      */
     generatePlans(entity, availableSkills, enemies, allies) {
         const plans = [];
-        const initialPlan = { actions: [], totalCost: 0 };
+        // initialPlan intègre l'état dynamique des PA pour prendre en compte les gains.
+        const initialPlan = { actions: [], totalCost: 0, currentPa: entity.pa };
         
         // On ajoute toujours la possibilité de ne rien faire ou s'arrêter là
         plans.push(initialPlan);
@@ -27,7 +28,7 @@
 
     /**
      * Tache 2.1 - Implémentation du moteur de parcours combinatoire (_enumerate)
-     * Fonction récursive (Backtracking / Sac à dos)
+     * Fonction récursive (Backtracking / Sac à dos) adapté aux PAs dynamiques
      */
     _enumerate(entity, availableSkills, enemies, allies, currentPlan, plans) {
         // Sécurités pour préserver les performances
@@ -35,11 +36,25 @@
         if (currentPlan.actions.length >= this.maxDepth) return;
 
         for (const skill of availableSkills) {
-            // Contrainte de PA (Budget global du tour)
-            if (currentPlan.totalCost + skill.paCost > entity.pa) continue;
+            let actualCost = 0;
+            let nextPa = currentPlan.currentPa;
+
+            if (skill.costType === 'all') {
+                // Attaque ultime qui consomme tous les PA restants
+                if (currentPlan.currentPa < skill.paCost) continue; // Minimum requis non atteint
+                actualCost = currentPlan.currentPa; // Dépense TOUT
+                nextPa = 0; // Tombe à zéro
+            } else {
+                // Attaque classique
+                if (currentPlan.currentPa < skill.paCost) continue;
+                actualCost = skill.paCost;
+                nextPa = Math.min(entity.maxPa, currentPlan.currentPa - actualCost + skill.paGain);
+            }
             
             // Tache 2.2 - Contrainte de Cooldown (Native)
-            if (!skill.isUsable(entity)) continue;
+            // On vérifie le skill original, bien que son usabilité dépende des PA de l'entité de base,
+            // on l'a déjà géré ci-dessus avec currentPa, on vérifie juste le cooldown ici.
+            if (skill.currentCd > 0) continue;
 
             // Tache 2.2 - Vérification des règles de contraintes (Empilement, etc.)
             if (this._violatesConstraints(skill, currentPlan)) continue;
@@ -49,14 +64,17 @@
 
             for (const target of targets) {
                 // Instanciation de la nouvelle branche de plan
+                const actionData = { skill, target, spentPA: actualCost };
+
                 const nextPlan = {
-                    actions: [...currentPlan.actions, { skill, target }],
-                    totalCost: currentPlan.totalCost + skill.paCost
+                    actions: [...currentPlan.actions, actionData],
+                    totalCost: currentPlan.totalCost + actualCost,
+                    currentPa: nextPa
                 };
 
                 plans.push(nextPlan);
 
-                // Appel récursif pour voir si on peut rajouter des actions avec les PA restants
+                // Appel récursif pour voir si on peut rajouter des actions avec les PA restants/gagnés
                 this._enumerate(entity, availableSkills, enemies, allies, nextPlan, plans);
             }
         }

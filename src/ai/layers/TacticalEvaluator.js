@@ -10,16 +10,84 @@
      * @param {Array<Object>} plans - Construit par la Couche 1 (ActionPlanner)
      * @param {Entity} entity - L'entité qui lance l'attaque
      * @param {Array<Object>} playerHistory - Historique du joueur pour prédiction (buffer)
+     * @param {Object} gameState - État global (ex: { playerParty: [...] }) pour Utility AI
      * @returns {Array<Object>} Les mêmes plans, mais triés avec leur propriété "score"
      */
-    evaluatePlans(plans, entity, playerHistory = []) {
+    evaluatePlans(plans, entity, playerHistory = [], gameState = {}) {
+        const utilityRules = entity.utility_rules || [];
+
         for (const plan of plans) {
+            // Évaluation tactique de base (scoring dégâts)
             plan.score = this._scorePlan(plan, entity, playerHistory);
+            
+            // Surcharge via Utility AI ("Règles d'Urgence absolues")
+            if (utilityRules.length > 0) {
+                const utilityScore = this.evaluateUtilityRules(entity, gameState, plan, utilityRules);
+                if (utilityScore > 0) {
+                    plan.score = utilityScore; // Écrase totalement l'évaluation standard
+                }
+            }
         }
         
         // Tri décroissant du meilleur score au pire
         plans.sort((a, b) => b.score - a.score);
         return plans;
+    }
+
+    /**
+     * Tâche 2.2 - Moteur de Règles d'Utilité (Utility AI)
+     * Évalue si le plan courant contient l'action imposée par une règle d'urgence
+     */
+    evaluateUtilityRules(entity, gameState, plan, rules) {
+        for (const rule of rules) {
+            if (this._isRuleConditionMet(rule.condition, entity, gameState)) {
+                // Règle valide. On vérifie si ce plan contient l'action imposée
+                const [actionType, actionId] = rule.action.split(':');
+                
+                for (const act of plan.actions) {
+                    // Si le plan contient le skill ou l'item attendu
+                    if ((actionType === 'skill' || actionType === 'use_item') && act.skill.id === actionId) {
+                        return rule.priority;
+                    }
+                }
+            }
+        }
+        return 0; // Aucune règle applicable à ce plan
+    }
+
+    /**
+     * Parse et valide une condition string d'Utility AI
+     * Ex: "self.hp_percent < 0.3" ou "target.pa >= 5"
+     */
+    _isRuleConditionMet(conditionString, entity, gameState) {
+        const parts = conditionString.split(' ');
+        if (parts.length >= 3) {
+            const variable = parts[0];
+            const operator = parts[1];
+            const value = parseFloat(parts[2]);
+            
+            let currentVal = 0;
+            
+            if (variable === 'self.hp_percent') {
+                currentVal = entity.hp / entity.maxHp;
+            } else if (variable === 'target.pa') {
+                const target = gameState.playerParty && gameState.playerParty[0] ? gameState.playerParty[0] : null;
+                if (target) currentVal = target.pa;
+                else return false;
+            } else if (variable === 'self.pa') {
+                currentVal = entity.pa;
+            }
+            
+            switch (operator) {
+                case '<': return currentVal < value;
+                case '<=': return currentVal <= value;
+                case '>': return currentVal > value;
+                case '>=': return currentVal >= value;
+                case '===': return currentVal === value;
+                case '==': return currentVal == value;
+            }
+        }
+        return false;
     }
 
     /**
@@ -55,7 +123,7 @@
      * Tâche 3.1 - Scoring Analytique : Dégâts et Stabilité (Rupture)
      */
     _estimateDamageScore(action, attacker) {
-        const { skill, target } = action;
+        const { skill, target, spentPA } = action;
         
         // Ignore le calcul de dommage si c'est un soin / buff ou pas une cible directe
         if (target === 'all_enemies' || skill.power === 0) return 0;
@@ -67,9 +135,12 @@
         // Récupération dynamique (si Entity) des stats
         const effectiveAtk = attacker.getEffAtk ? attacker.getEffAtk() : attacker.atk || 10;
         const effectiveDef = target.getEffDef ? target.getEffDef() : target.def || 10;
+        
+        // Calcule la puissance réelle en cas d'attaque proportionnelle (costType: 'all')
+        const realPower = skill.calculatePower ? skill.calculatePower(spentPA || skill.paCost) : skill.power;
 
         // Formule de dégâts formelle
-        let baseDamage = (skill.power * effectiveAtk) / Math.max(1, effectiveDef);
+        let baseDamage = (realPower * effectiveAtk) / Math.max(1, effectiveDef);
 
         // Multiplicateur de Faiblesse
         if (target.getWeaknessMultiplier) {
