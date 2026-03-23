@@ -11,6 +11,12 @@
     overflow: hidden;
     font-family: 'Courier New', Courier, monospace;
     user-select: none;
+    cursor: none;
+  }
+
+  body.combat-mode,
+  body.combat-mode * {
+    cursor: none !important;
   }
 
   #renderCanvas {
@@ -19,6 +25,7 @@
     height: 100vh;
     touch-action: none;
     outline: none;
+    cursor: none;
   }
 
   /* â”€â”€ LOADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -244,38 +251,71 @@
       <div>ENTITÃ‰ ALPHA <span id="cHpe" style="color: #EF4444;">120</span>/120 HP</div>
     </div>
 
-    <div id="cMenu" style="display: flex; gap: 30px; opacity: 0; transition: opacity 0.3s;">
-      <div class="action-box">
-        <span class="hotkey">1</span>
-        <span class="act-name">FRAPPE LAME</span>
-        <span class="act-cost">0 MP</span>
-      </div>
-      <div class="action-box">
-        <span class="hotkey">2</span>
-        <span class="act-name" style="color: #2E86DE;">SURCHARGE</span>
-        <span class="act-cost" style="color: #2E86DE;">15 MP</span>
-      </div>
-      <div class="action-box">
-        <span class="hotkey">3</span>
-        <span class="act-name" style="color: #10B981;">RÃ‰PARATION</span>
-        <span class="act-cost" style="color: #10B981;">OBJ x<span id="cPot">3</span></span>
-      </div>
-    </div>
+    <div id="cMenu" style="display: flex; flex-direction: column; gap: 12px; opacity: 0; transition: opacity 0.3s; align-items: flex-start;"></div>
   </div>
 </div>
 
 <style>
   .action-box {
-    background: rgba(3, 5, 12, 0.8); border: 1px solid rgba(46,134,222,0.3);
-    padding: 10px 20px; border-radius: 4px; display: flex; flex-direction: column; align-items: center;
-    min-width: 140px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    position: relative;
+    min-width: 460px;
+    max-width: 560px;
+    padding: 14px 18px 12px 58px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: linear-gradient(165deg, rgba(24,26,35,0.92), rgba(6,8,16,0.92));
+    box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+    transform: skewX(-8deg);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .action-box.active {
+    border-color: rgba(120, 190, 255, 0.9);
+    box-shadow: 0 0 0 1px rgba(120,190,255,0.4), 0 12px 28px rgba(0,0,0,0.55);
+    transform: skewX(-8deg) translateX(8px);
+  }
+  .action-box .content {
+    transform: skewX(8deg);
   }
   .hotkey {
-    background: #fff; color: #000; font-weight: bold; font-size: 14px;
-    padding: 2px 8px; border-radius: 2px; margin-bottom: 8px;
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.8);
+    color: #f5f7ff;
+    font-weight: 800;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,12,20,0.9);
   }
-  .act-name { font-size: 12px; letter-spacing: 2px; margin-bottom: 4px; }
-  .act-cost { font-size: 10px; color: #64748b; }
+  .act-name {
+    font-size: 34px;
+    letter-spacing: 1px;
+    color: #e7ecff;
+    line-height: 1;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  .act-desc {
+    font-size: 18px;
+    color: #cfd6ef;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .act-cost {
+    font-size: 17px;
+    color: #9ae1ff;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .action-box.cooldown .act-cost {
+    color: #ff8f8f;
+  }
 </style>
 
 <!-- â”€â”€ BABYLON JS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
@@ -321,6 +361,15 @@ const CFG = {
   rotLerp:           0.13,     
   camLerp:           0.25,     
   camFovLerp:        0.04,     
+
+  // Auto-follow + anti-occlusion
+  camAutoFollowStrength: 0.09,
+  camObstructionBuffer:  0.45,
+  camRestoreSpeed:       0.08,
+  camCutInSpeed:         0.34,
+  camObstacleFade:       0.28,
+  camMouseLookX:         0.0032,
+  camMouseLookY:         0.0022,
 };
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -360,7 +409,68 @@ const G = {
   currentSpeed: 0,
   lastAnimSuffix: "z",
   jumpCooldown: 0,
+
+  // Camera runtime state
+  cameraUserRadius: CFG.camRadius,
+  occludingMeshes: new Set(),
+  lastMouseX: null,
+  lastMouseY: null,
+  pointerLocked: false,
 };
+
+function wrapAngle(angle) {
+  while (angle > Math.PI) angle -= Math.PI * 2;
+  while (angle < -Math.PI) angle += Math.PI * 2;
+  return angle;
+}
+
+function lerpAngle(from, to, t) {
+  const delta = wrapAngle(to - from);
+  return from + delta * t;
+}
+
+function restoreOccludingMeshes() {
+  G.occludingMeshes.forEach((mesh) => {
+    if (mesh && !mesh.isDisposed()) {
+      mesh.visibility = 1.0;
+    }
+  });
+  G.occludingMeshes.clear();
+}
+
+function resolveCameraObstruction(scene, camera, target, playerMesh) {
+  const toCamera = camera.position.subtract(target);
+  const dist = toCamera.length();
+  if (dist < 0.001) return false;
+
+  const ray = new BABYLON.Ray(target, toCamera.normalize(), dist);
+  const hit = scene.pickWithRay(ray, (m) => {
+    if (!m || m.isDisposed()) return false;
+    if (m === playerMesh) return false;
+    if (m.name.startsWith("player")) return false;
+    return m.isPickable && m.checkCollisions;
+  });
+
+  restoreOccludingMeshes();
+
+  if (hit?.hit) {
+    const safeRadius = BABYLON.Scalar.Clamp(
+      hit.distance - CFG.camObstructionBuffer,
+      CFG.camMinR,
+      G.cameraUserRadius,
+    );
+    camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, CFG.camCutInSpeed);
+
+    if (hit.pickedMesh && !hit.pickedMesh.isDisposed()) {
+      hit.pickedMesh.visibility = CFG.camObstacleFade;
+      G.occludingMeshes.add(hit.pickedMesh);
+    }
+    return true;
+  } else {
+    camera.radius = BABYLON.Scalar.Lerp(camera.radius, G.cameraUserRadius, CFG.camRestoreSpeed);
+    return false;
+  }
+}
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  ðŸ”§  CHARGEMENT DYNAMIQUE DE HAVOK
@@ -394,6 +504,11 @@ const COMBAT = {
   turn: 'NONE', // 'PLAYER', 'ENEMY', 'BUSY'
   enemyMesh: null,
   playerMesh: null,
+  camera: null,
+  scene: null,
+  cameraStabilizerObserver: null,
+  cameraFocusTurn: 'PLAYER',
+  prevCameraState: null,
   
   // IA & Entities
   playerEntity: null,
@@ -410,20 +525,168 @@ const COMBAT = {
     return Math.max(1, d); // Minimum 1 point de dégât
   },
 
+  // RPG cards (Expedition-like option cards)
+  abilityCards: [
+    {
+      id: "strike_basic",
+      name: "Frappe Basique",
+      description: "Une attaque simple au corps a corps.",
+      key: "1",
+      paCost: 1,
+      animationKey: "atk1",
+      unlocks: ["strike_heavy"],
+    },
+    {
+      id: "guard",
+      name: "Garde Defensive",
+      description: "Reduit les degats pendant un court instant.",
+      key: "2",
+      paCost: 1,
+      animationKey: "idle",
+      unlocks: [],
+    },
+    {
+      id: "battle_cry",
+      name: "Cri de Bataille",
+      description: "Boost temporaire qui debloque une nouvelle frappe.",
+      key: "3",
+      paCost: 2,
+      animationKey: "jump",
+      unlocks: ["inspired_strike"],
+    },
+    {
+      id: "strike_heavy",
+      name: "Frappe Lourde",
+      description: "Une frappe plus lente et puissante.",
+      key: "4",
+      paCost: 2,
+      animationKey: "atk2",
+      unlocks: [],
+    },
+    {
+      id: "inspired_strike",
+      name: "Frappe Inspiree",
+      description: "Frappe speciale debloquee via Cri de Bataille.",
+      key: "5",
+      paCost: 2,
+      animationKey: "atk2",
+      unlocks: [],
+    },
+  ],
+  unlockedAbilityCards: null,
+  abilityCooldowns: null,
+  abilityCooldownMs: 1400,
+  selectedAbilityCardId: null,
+
+  getAvailableAbilityCards: function() {
+    if (!this.unlockedAbilityCards) return [];
+    return this.abilityCards
+      .filter((card) => this.unlockedAbilityCards.has(card.id))
+      .sort((a, b) => a.key.localeCompare(b.key));
+  },
+
+  isAbilityOnCooldown: function(cardId) {
+    if (!this.abilityCooldowns) return false;
+    const endTs = this.abilityCooldowns.get(cardId) || 0;
+    return Date.now() < endTs;
+  },
+
+  renderAbilityMenu: function() {
+    const menu = document.getElementById("cMenu");
+    if (!menu) return;
+    const cards = this.getAvailableAbilityCards();
+    if (!this.selectedAbilityCardId || !cards.some((c) => c.id === this.selectedAbilityCardId)) {
+      this.selectedAbilityCardId = cards[0]?.id || null;
+    }
+    menu.innerHTML = cards.map((card) => {
+      const isCd = this.isAbilityOnCooldown(card.id);
+      const cd = isCd ? "COOLDOWN" : (card.paCost + " PA");
+      const isActive = this.selectedAbilityCardId === card.id;
+      return `
+        <div class="action-box ${isActive ? "active" : ""} ${isCd ? "cooldown" : ""}">
+          <span class="hotkey">${card.key}</span>
+          <div class="content">
+            <div class="act-name">${card.name}</div>
+            <div class="act-desc">${card.description}</div>
+            <div class="act-cost">Consomme: ${cd}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  },
+
+  useAbilityCard: function(card) {
+    if (this.turn !== 'PLAYER' || !card) return;
+    if (!this.unlockedAbilityCards || !this.unlockedAbilityCards.has(card.id)) return;
+    if (this.isAbilityOnCooldown(card.id)) return this.log(card.name + " est en cooldown.");
+    if ((this.playerEntity.pa || 0) < (card.paCost || 0)) return this.log("Pas assez de PA !");
+
+    this.setTurn('BUSY');
+    this.playerEntity.pa -= (card.paCost || 0);
+
+    if (window.playerEntityObj && card.animationKey) {
+      window.playerEntityObj.playAnim(card.animationKey);
+    }
+
+    if (card.id === "strike_basic") {
+      const dmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 15 });
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE BASIQUE : " + dmg + " degats.");
+    } else if (card.id === "strike_heavy") {
+      const dmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 26 });
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE LOURDE : " + dmg + " degats.");
+    } else if (card.id === "inspired_strike") {
+      const dmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 34 });
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE INSPIREE : " + dmg + " degats.");
+    } else if (card.id === "guard") {
+      this.playerEntity.hp = Math.min(this.playerEntity.maxHp, this.playerEntity.hp + 15);
+      this.log("GARDE DEFENSIVE : +15 HP.");
+    } else if (card.id === "battle_cry") {
+      this.log("CRI DE BATAILLE : puissance concentree.");
+    }
+
+    (card.unlocks || []).forEach((unlockId) => {
+      const exists = this.abilityCards.some((c) => c.id === unlockId);
+      if (exists && this.unlockedAbilityCards && !this.unlockedAbilityCards.has(unlockId)) {
+        this.unlockedAbilityCards.add(unlockId);
+      }
+    });
+
+    if (this.abilityCooldowns) {
+      this.abilityCooldowns.set(card.id, Date.now() + this.abilityCooldownMs);
+      setTimeout(() => this.updateUI(), this.abilityCooldownMs + 20);
+    }
+
+    this.updateUI();
+    setTimeout(() => this.checkWinLoss('ENEMY'), 1100);
+  },
+
   // Fonction pour écouter le clavier pendant le combat
   handleInput: function(evt) {
     if (this.turn !== 'PLAYER') return;
-
-    if (evt.key === '1') this.action('ATTACK');
-    if (evt.key === '2') this.action('SKILL');
-    if (evt.key === '3') this.action('ITEM');
+    const key = (evt.key || "").trim();
+    if (!/^\d$/.test(key)) return;
+    const card = this.getAvailableAbilityCards().find((c) => c.key === key);
+    if (card) {
+      this.selectedAbilityCardId = card.id;
+      this.updateUI();
+      this.useAbilityCard(card);
+    }
   },
 
   init: function(scene, camera, player, enemy) {
     this.active = true;
     this.enemyMesh = enemy;
     this.playerMesh = player.mesh;
+    this.camera = camera;
+    this.scene = scene;
     this.turn = 'BUSY';
+    this.cameraFocusTurn = 'PLAYER';
+    this.unlockedAbilityCards = new Set(["strike_basic", "guard", "battle_cry"]);
+    this.abilityCooldowns = new Map();
+    this.selectedAbilityCardId = "strike_basic";
     
     // Instancier le moteur central
     this.aiEngine = new AIEngine();
@@ -463,13 +726,70 @@ const COMBAT = {
     window.addEventListener("keydown", this.boundInputHandler);
 
     player.agg.body.setLinearVelocity(BABYLON.Vector3.Zero());
+    if (player.stopAnim) player.stopAnim();
+    if (player.playAnim) player.playAnim("idle");
 
-    // Caméra de combat dynamique
+    this.prevCameraState = {
+      alpha: camera.alpha,
+      beta: camera.beta,
+      radius: camera.radius,
+      target: camera.target.clone(),
+    };
+
+    if (document.pointerLockElement || document.mozPointerLockElement || document.webkitPointerLockElement) {
+      if (document.exitPointerLock) document.exitPointerLock();
+      else if (document.mozExitPointerLock) document.mozExitPointerLock();
+      else if (document.webkitExitPointerLock) document.webkitExitPointerLock();
+    }
+
+    // Caméra de combat dynamique verrouillée
     const midPoint = player.mesh.position.add(enemy.position).scale(0.5);
     camera.target = midPoint;
     camera.alpha = -Math.PI / 3;
     camera.beta = Math.PI / 2.2;
     camera.radius = 9;
+
+    camera.detachControl();
+    camera.inertialAlphaOffset = 0;
+    camera.inertialBetaOffset = 0;
+    camera.inertialRadiusOffset = 0;
+    camera.lowerAlphaLimit = camera.alpha;
+    camera.upperAlphaLimit = camera.alpha;
+    camera.lowerBetaLimit = camera.beta;
+    camera.upperBetaLimit = camera.beta;
+    camera.lowerRadiusLimit = camera.radius;
+    camera.upperRadiusLimit = camera.radius;
+
+    this.cameraStabilizerObserver = scene.onBeforeRenderObservable.add(() => {
+      if (!this.active || !this.camera || !this.playerMesh || !this.enemyMesh || this.enemyMesh.isDisposed()) return;
+
+      const actor = this.cameraFocusTurn === 'ENEMY' ? this.enemyMesh : this.playerMesh;
+      const opponent = this.cameraFocusTurn === 'ENEMY' ? this.playerMesh : this.enemyMesh;
+      if (!actor || !opponent || actor.isDisposed?.() || opponent.isDisposed?.()) return;
+
+      const actorEye = actor.position.add(new BABYLON.Vector3(0, 1.05, 0));
+      const toOpponent = opponent.position.subtract(actor.position);
+      toOpponent.y = 0;
+
+      if (toOpponent.lengthSquared() > 0.0001) {
+        toOpponent.normalize();
+      } else {
+        toOpponent.set(Math.cos(this.camera.alpha), 0, Math.sin(this.camera.alpha));
+      }
+
+      // Strict behind-active-actor camera: opposite to opponent direction.
+      const backDir = toOpponent.scale(-1);
+      const desiredAlpha = Math.atan2(backDir.z, backDir.x);
+      this.camera.target = BABYLON.Vector3.Lerp(this.camera.target, actorEye, 0.26);
+      this.camera.alpha = lerpAngle(this.camera.alpha, desiredAlpha, 0.22);
+      this.camera.beta = BABYLON.Scalar.Lerp(this.camera.beta, Math.PI / 2.25, 0.22);
+      this.camera.radius = BABYLON.Scalar.Lerp(this.camera.radius, 8.8, 0.20);
+      this.camera.inertialAlphaOffset = 0;
+      this.camera.inertialBetaOffset = 0;
+      this.camera.inertialRadiusOffset = 0;
+    });
+
+    document.body.classList.add("combat-mode");
 
     document.getElementById("hud").style.display = "none";
     document.getElementById("combatUI").style.display = "block";
@@ -487,20 +807,25 @@ const COMBAT = {
     document.getElementById("cHpj").textContent = this.playerEntity.hp + " (PA: " + this.playerEntity.pa + ")";
     document.getElementById("cMpj").textContent = "-"; // MP remplacé par PA
     document.getElementById("cHpe").textContent = this.enemyEntity.hp + " (PA: " + this.enemyEntity.pa + ")";
-    document.getElementById("cPot").textContent = this.playerEntity.inventory["potion"];
+    const potEl = document.getElementById("cPot");
+    if (potEl) potEl.textContent = this.playerEntity.inventory["potion"];
 
     // Afficher ou cacher le menu selon le tour
     const menu = document.getElementById("cMenu");
     menu.style.opacity = (this.turn === 'PLAYER') ? "1" : "0.3";
+    this.renderAbilityMenu();
   },
 
   setTurn: function(who) {
     this.turn = who;
     
     if (who === 'PLAYER') {
+      this.cameraFocusTurn = 'PLAYER';
       this.playerEntity.regeneratePA();
-      this.log("VOTRE TOUR. (1: Atk[1PA], 2: Skill[2PA], 3: Pot).");
+      const keys = this.getAvailableAbilityCards().map((c) => c.key).join(", ");
+      this.log("VOTRE TOUR. Cartes: " + keys);
     } else if (who === 'ENEMY') {
+      this.cameraFocusTurn = 'ENEMY';
       this.enemyEntity.regeneratePA();
       setTimeout(() => this.enemyAI(), 1000);
     }
@@ -607,6 +932,29 @@ const COMBAT = {
     window.removeEventListener("keydown", this.boundInputHandler);
     document.getElementById("combatUI").style.display = "none";
     document.getElementById("hud").style.display = "block";
+
+    document.body.classList.remove("combat-mode");
+    restoreOccludingMeshes();
+
+    if (this.scene && this.cameraStabilizerObserver) {
+      this.scene.onBeforeRenderObservable.remove(this.cameraStabilizerObserver);
+      this.cameraStabilizerObserver = null;
+    }
+
+    if (this.camera && this.prevCameraState) {
+      this.camera.lowerRadiusLimit = CFG.camMinR;
+      this.camera.upperRadiusLimit = CFG.camMaxR;
+      this.camera.lowerBetaLimit = 0.10;
+      this.camera.upperBetaLimit = Math.PI / 2.1;
+      this.camera.lowerAlphaLimit = null;
+      this.camera.upperAlphaLimit = null;
+      this.camera.target = this.prevCameraState.target.clone();
+      this.camera.alpha = this.prevCameraState.alpha;
+      this.camera.beta = this.prevCameraState.beta;
+      this.camera.radius = this.prevCameraState.radius;
+      this.camera.attachControl(document.getElementById("renderCanvas"), true);
+      G.cameraUserRadius = this.camera.radius;
+    }
 
     // Redonner le focus au canvas pour reprendre les déplacements fluides
     document.getElementById("renderCanvas").focus();
@@ -1099,6 +1447,75 @@ function buildCamera(scene, canvas, playerMesh) {
   cam.fov                   = CFG.camFovIdle;
 
   cam.attachControl(canvas, true);
+
+  // On garde le zoom molette, mais la rotation caméra principale est gérée par mousemove sans clic.
+  if (cam.inputs?.attached?.pointers) {
+    cam.inputs.attached.pointers.buttons = [];
+  }
+
+  G.cameraUserRadius = cam.radius;
+
+  const getPointerLockElement = () => (
+    document.pointerLockElement ||
+    document.mozPointerLockElement ||
+    document.webkitPointerLockElement
+  );
+
+  const requestPointerLockOnCanvas = () => {
+    const req = canvas.requestPointerLock || canvas.mozRequestPointerLock || canvas.webkitRequestPointerLock;
+    if (req) req.call(canvas);
+  };
+
+  canvas.addEventListener("mouseenter", () => {
+    G.lastMouseX = null;
+    G.lastMouseY = null;
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    G.lastMouseX = null;
+    G.lastMouseY = null;
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (COMBAT.active) return;
+
+    if (!G.pointerLocked) return;
+
+    const dx = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
+    const dy = e.movementY || e.mozMovementY || e.webkitMovementY || 0;
+
+    cam.alpha -= dx * CFG.camMouseLookX;
+    cam.beta = BABYLON.Scalar.Clamp(
+      cam.beta - dy * CFG.camMouseLookY,
+      0.10,
+      Math.PI / 2.1,
+    );
+  });
+
+  canvas.addEventListener("pointerdown", () => {
+    if (COMBAT.active) return;
+    if (getPointerLockElement() === canvas) return;
+    requestPointerLockOnCanvas();
+  });
+
+  document.addEventListener("pointerlockchange", () => {
+    G.pointerLocked = getPointerLockElement() === canvas;
+    G.lastMouseX = null;
+    G.lastMouseY = null;
+  });
+
+  document.addEventListener("mozpointerlockchange", () => {
+    G.pointerLocked = getPointerLockElement() === canvas;
+    G.lastMouseX = null;
+    G.lastMouseY = null;
+  });
+
+  document.addEventListener("webkitpointerlockchange", () => {
+    G.pointerLocked = getPointerLockElement() === canvas;
+    G.lastMouseX = null;
+    G.lastMouseY = null;
+  });
+
   canvas.addEventListener("contextmenu", e => e.preventDefault());
 
   return cam;
@@ -1152,6 +1569,7 @@ function loop(scene, player, camera, engine) {
   // â”€â”€ GESTION Ã‰TAT COMBAT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (COMBAT.active) {
     // Si on est en combat, on bloque la mise Ã  jour des contrÃ´les et de la camÃ©ra normale
+    restoreOccludingMeshes();
     return; 
   }
 
@@ -1310,10 +1728,21 @@ function loop(scene, player, camera, engine) {
     visual.rotation.y     = G.facing;
   }
 
+  // Caméra auto-follow type GTA: réalignement doux derrière la direction du déplacement.
+  if (moving) {
+    const desiredAlpha = Math.atan2(-G.lastMoveDir.z, -G.lastMoveDir.x);
+    camera.alpha = lerpAngle(camera.alpha, desiredAlpha, CFG.camAutoFollowStrength);
+  }
+
   // â”€â”€ CamÃ©ra suit le joueur avec lerp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // On cible un peu plus haut (1.1 au lieu de 0.55) pour viser le haut du dos/Ã©paules
   const camTarget = mesh.position.add(new BABYLON.Vector3(0, 1.1, 0));
   camera.target   = BABYLON.Vector3.Lerp(camera.target, camTarget, CFG.camLerp);
+
+  const obstructed = resolveCameraObstruction(scene, camera, camTarget, mesh);
+  if (!obstructed) {
+    G.cameraUserRadius = camera.radius;
+  }
 
   // â”€â”€ Zoom dynamique et cinÃ©matique (FOV) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Au lieu d'utiliser un boolean binaire (moving), on utilise la proportion de vitesse 

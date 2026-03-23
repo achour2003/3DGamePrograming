@@ -125,11 +125,144 @@ const createScene = async function () {
     let isJumping = false;
     let isLanding = false;
 
+        // ===== NOUVEAU: Système de cartes d'aptitudes (RPG / role-based) =====
+        const abilityCards = [
+            {
+                id: "strike_basic",
+                name: "Frappe Basique",
+                description: "Une attaque simple au corps a corps.",
+                key: "1",
+                animationKey: "jog_z",
+                unlocks: ["strike_heavy"],
+            },
+            {
+                id: "guard",
+                name: "Garde Defensive",
+                description: "Reduit les degats pendant un court instant.",
+                key: "2",
+                animationKey: "walk_s",
+                unlocks: [],
+            },
+            {
+                id: "battle_cry",
+                name: "Cri de Bataille",
+                description: "Boost temporaire qui debloque une nouvelle frappe.",
+                key: "3",
+                animationKey: "jump",
+                unlocks: ["inspired_strike"],
+            },
+            // Cartes de suivi debloquees en jeu (vous remplacerez animationKey plus tard)
+            {
+                id: "strike_heavy",
+                name: "Frappe Lourde",
+                description: "Une frappe plus lente et puissante.",
+                key: "4",
+                animationKey: "jog_s",
+                unlocks: [],
+            },
+            {
+                id: "inspired_strike",
+                name: "Frappe Inspiree",
+                description: "Une frappe speciale apres un cri de bataille.",
+                key: "5",
+                animationKey: "walk_z",
+                unlocks: [],
+            },
+        ];
+
+        const availableAbilityCardIds = new Set(["strike_basic", "guard", "battle_cry"]);
+        const abilityCooldownMap = new Map();
+        const ABILITY_COOLDOWN_MS = 1200;
+        const ABILITY_ANIMATION_LOCK_MS = 450;
+        let abilityAnimationLockUntil = 0;
+
+        function isAbilityOnCooldown(cardId) {
+            const until = abilityCooldownMap.get(cardId) || 0;
+            return Date.now() < until;
+        }
+
+        function getCardById(cardId) {
+            return abilityCards.find((c) => c.id === cardId) || null;
+        }
+
+        function getAvailableCards() {
+            return Array.from(availableAbilityCardIds)
+                .map((id) => getCardById(id))
+                .filter(Boolean)
+                .sort((a, b) => a.key.localeCompare(b.key));
+        }
+
+        // ===== NOUVEAU: UI overlay minimale des cartes disponibles =====
+        const abilitiesUI = document.createElement("div");
+        abilitiesUI.id = "abilityCardsOverlay";
+        abilitiesUI.style.position = "fixed";
+        abilitiesUI.style.right = "16px";
+        abilitiesUI.style.bottom = "16px";
+        abilitiesUI.style.zIndex = "1000";
+        abilitiesUI.style.padding = "10px 12px";
+        abilitiesUI.style.background = "rgba(0,0,0,0.45)";
+        abilitiesUI.style.color = "#ffffff";
+        abilitiesUI.style.fontFamily = "monospace";
+        abilitiesUI.style.fontSize = "12px";
+        abilitiesUI.style.lineHeight = "1.6";
+        abilitiesUI.style.pointerEvents = "none";
+        document.body.appendChild(abilitiesUI);
+
+        function updateAbilitiesUI() {
+            const lines = getAvailableCards().map((card) => {
+                const cooldownTag = isAbilityOnCooldown(card.id) ? " (cooldown)" : "";
+                return card.key + " - " + card.name + cooldownTag;
+            });
+            abilitiesUI.textContent = lines.join("\n") || "Aucune carte disponible";
+            abilitiesUI.style.whiteSpace = "pre-line";
+        }
+
+        // ===== NOUVEAU: Utilisation d'une carte =====
+        function useAbilityCard(card) {
+            if (!card) return;
+            if (!availableAbilityCardIds.has(card.id)) return;
+            if (isAbilityOnCooldown(card.id)) return;
+
+            if (animGroupsObj[card.animationKey]) {
+                playAnimation(card.animationKey);
+                abilityAnimationLockUntil = Date.now() + ABILITY_ANIMATION_LOCK_MS;
+            } else {
+                console.warn("Animation de carte introuvable:", card.animationKey);
+            }
+
+            abilityCooldownMap.set(card.id, Date.now() + ABILITY_COOLDOWN_MS);
+            setTimeout(() => {
+                updateAbilitiesUI();
+            }, ABILITY_COOLDOWN_MS + 20);
+
+            card.unlocks.forEach((unlockId) => {
+                if (!availableAbilityCardIds.has(unlockId) && getCardById(unlockId)) {
+                    availableAbilityCardIds.add(unlockId);
+                }
+            });
+
+            updateAbilitiesUI();
+        }
+
+        function handleAbilityKeyPress(key) {
+            const card = getAvailableCards().find((c) => c.key === key);
+            if (card) {
+                useAbilityCard(card);
+            }
+        }
+
+        updateAbilitiesUI();
+
     window.addEventListener("keydown", (evt) => {
         let key = evt.key.toLowerCase();
         if(key === " ") key = "space";
         if(evt.shiftKey) inputMap["shift"] = true;
         inputMap[key] = true;
+
+        // ===== NOUVEAU: Input des cartes (1,2,3...) =====
+        if (!evt.repeat && /^[0-9]$/.test(key)) {
+            handleAbilityKeyPress(key);
+        }
     });
 
     window.addEventListener("keyup", (evt) => {
@@ -557,11 +690,13 @@ const createScene = async function () {
                 verticalVelocity = 0;
             }
         } else if (!isLanding) {
+            const isAbilityAnimationLocked = Date.now() < abilityAnimationLockUntil;
+
             // Choix de l'animation de déplacement horizontal
-            if (keySuffix !== "") {
+            if (!isAbilityAnimationLocked && keySuffix !== "") {
                 let prefix = walk ? "walk_" : "jog_";
                 playAnimation(prefix + keySuffix);
-            } else {
+            } else if (!isAbilityAnimationLocked) {
                 if (currentAnimation) {
                     currentAnimation.stop();
                     currentAnimation = null;
