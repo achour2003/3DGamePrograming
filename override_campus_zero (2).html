@@ -439,17 +439,34 @@ function restoreOccludingMeshes() {
 }
 
 function resolveCameraObstruction(scene, camera, target, playerMesh, desiredRadius) {
+  // MAJ AAA cruciale: S'assurer que le calcul de la position de la camÃ©ra 
+  // est Ã  jour avec son nouveau `target` de cette frame !
+  // Sans Ã§a, la soustraction utilise la position de la frame prÃ©cÃ©dente => bug de dÃ©calage/jitter.
+  camera.computeWorldMatrix();
+
   const toCamera = camera.position.subtract(target);
   const dist = toCamera.length();
   if (dist < 0.001) return false;
 
-  const ray = new BABYLON.Ray(target, toCamera.normalize(), dist);
+  const dir = toCamera.normalize();
+  // IMPORTANT POUR Ã‰VITER LES VIBRATIONS : 
+  // Le rayon de détection doit absolument mesurer la longueur `desiredRadius` et non pas la distance actuelle.
+  // Sinon, quand la caméra se rapproche, la distance est plus courte, le mur n'est plus détecté, 
+  // la caméra recule, retouche le mur, etc. -> C'est ça qui crée la vibration.
+  const ray = new BABYLON.Ray(target, dir, desiredRadius);
+  
   const hit = scene.pickWithRay(ray, (m) => {
     if (!m || m.isDisposed()) return false;
     if (m === playerMesh) return false;
-    if (m.name.startsWith("player")) return false;
-    // On ignore le sol pour Ã©viter le stuttering insupportable quand on regarde vers le haut
-    if (m.name.toLowerCase().includes("ground") || m.name.toLowerCase().includes("sol")) return false;
+    
+    // On doit absolument ignorer toutes les parties du maillage 3D du joueur (bras, jambes, dos)
+    // Sinon la camÃ©ra rentre en collision avec le joueur quand on regarde vers le haut !
+    let current = m;
+    while (current) {
+        if (current === playerMesh || current.name.startsWith("player")) return false;
+        current = current.parent;
+    }
+    
     return m.isPickable && m.checkCollisions;
   });
 
@@ -458,17 +475,20 @@ function resolveCameraObstruction(scene, camera, target, playerMesh, desiredRadi
   if (hit?.hit) {
     const safeRadius = BABYLON.Scalar.Clamp(
       hit.distance - CFG.camObstructionBuffer,
-      CFG.camMinR,
+      0.1, // Doit pouvoir aller trÃ¨s prÃ¨s (en dessous de camMinR) si on est dos au mur !
       desiredRadius,
     );
-    camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, CFG.camCutInSpeed);
+    
+    // Zoom trÃ¨s fluide vers l'obstacle (on accÃ©lÃ¨re un peu le cutInSpeed pour la rÃ©activitÃ©)
+    camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, CFG.camCutInSpeed * 1.5);
 
-    if (hit.pickedMesh && !hit.pickedMesh.isDisposed()) {
-      hit.pickedMesh.visibility = CFG.camObstacleFade;
-      G.occludingMeshes.add(hit.pickedMesh);
-    }
+    // DANS LES JEUX AAA: On ne rend presque jamais les objets invisibles (surtout pas un bÃ¢timent entier) 
+    // puisque la camÃ©ra s'est dÃ©jÃ  rapprochÃ©e devant l'obstacle grÃ¢ce au rayon !
+    // Si l'objet Ã©tait dÃ©jÃ  transparent par erreur dans la mÃ©moire, restoreOccludingMeshes() l'aura de toute faÃ§on remis visible.
+
     return true;
   } else {
+    // Éloignement fluide quand il n'y a plus d'obstacle
     camera.radius = BABYLON.Scalar.Lerp(camera.radius, desiredRadius, CFG.camRestoreSpeed);
     return false;
   }
@@ -944,10 +964,10 @@ const COMBAT = {
     }
 
     if (this.camera && this.prevCameraState) {
-      this.camera.lowerRadiusLimit = CFG.camMinR;
+      this.camera.lowerRadiusLimit = 0.1; // AAA: permet aux collisions de pousser jusqu'au joueur
       this.camera.upperRadiusLimit = CFG.camMaxR;
-      this.camera.lowerBetaLimit = 0.10;
-      this.camera.upperBetaLimit = Math.PI / 2.1;
+      this.camera.lowerBetaLimit = 0.05;
+      this.camera.upperBetaLimit = Math.PI - 0.1;
       this.camera.lowerAlphaLimit = null;
       this.camera.upperAlphaLimit = null;
       this.camera.target = this.prevCameraState.target.clone();
@@ -1435,7 +1455,7 @@ function buildCamera(scene, canvas, playerMesh) {
   cam.checkCollisions       = false; 
   // cam.collisionRadius       = new BABYLON.Vector3(0.4, 0.4, 0.4); 
 
-  cam.lowerRadiusLimit      = CFG.camMinR;
+  cam.lowerRadiusLimit      = 0.1; // Permettre au mur de pousser la camÃ©ra trÃ¨s prÃ¨s
   cam.upperRadiusLimit      = CFG.camMaxR;
   cam.lowerBetaLimit        = 0.05; // Autoriser la camÃ©ra Ã  bien monter quand on bouge la souris vers le haut
   cam.upperBetaLimit        = Math.PI - 0.1; // Autoriser a descendre presque tout en bas
@@ -1490,8 +1510,8 @@ function buildCamera(scene, canvas, playerMesh) {
     cam.alpha -= dx * CFG.camMouseLookX;
     cam.beta = BABYLON.Scalar.Clamp(
       cam.beta - dy * CFG.camMouseLookY,
-      0.10,
-      Math.PI / 2.1,
+      0.05,
+      Math.PI - 0.1,
     );
   });
 
@@ -1738,8 +1758,14 @@ function loop(scene, player, camera, engine) {
   }
 
   // â”€â”€ CamÃ©ra suit le joueur avec lerp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // On cible un peu plus haut (1.1 au lieu de 0.55) pour viser le haut du dos/Ã©paules
-  const camTarget = mesh.position.add(new BABYLON.Vector3(0, 1.1, 0));
+  // SYSTÃˆME AAA: Quand on regarde vers le haut (beta grand), on lÃ¨ve doucement la cÃ®ble 
+  // au-dessus de la tÃªte du joueur. Cela permet de voir le ciel, le toit et le soleil librement !
+  // camera.beta va typiquement de 0 (ciel) Ã  Math.PI/2 (horizontal) puis jusqu'Ã  Math.PI (sol).
+  // On commence Ã  lever la cible quand on dÃ©passe l'horizontale.
+  const lookUpFactor = Math.max(0, camera.beta - Math.PI / 2.2); 
+  const dynamicY = 1.1 + (lookUpFactor * 1.8); // 1.1 = epaules, peut monter jusqu'Ã  presque 3m
+
+  const camTarget = mesh.position.add(new BABYLON.Vector3(0, dynamicY, 0));
   camera.target   = BABYLON.Vector3.Lerp(camera.target, camTarget, CFG.camLerp);
 
   // Zoom de 20% quand on court
