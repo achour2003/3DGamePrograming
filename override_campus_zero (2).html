@@ -368,8 +368,8 @@ const CFG = {
   camRestoreSpeed:       0.08,
   camCutInSpeed:         0.34,
   camObstacleFade:       0.28,
-  camMouseLookX:         0.0032,
-  camMouseLookY:         0.0022,
+  camMouseLookX:         0.0018,
+  camMouseLookY:         0.0015,
 };
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1034,10 +1034,10 @@ async function init() {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function buildScene(engine, canvas) {
   const scene       = new BABYLON.Scene(engine);
-  scene.clearColor  = P.bg;
+  scene.clearColor  = new BABYLON.Color4(0.06, 0.06, 0.07, 1.0);
   scene.ambientColor = new BABYLON.Color3(0.04, 0.06, 0.10);
   scene.fogMode     = BABYLON.Scene.FOGMODE_EXP2;
-  scene.fogColor    = P.fog;
+  scene.fogColor    = new BABYLON.Color3(0.08, 0.08, 0.09);
   scene.fogDensity  = 0.0080;
 
   // â”€â”€ PHYSIQUE HAVOK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1053,7 +1053,7 @@ async function buildScene(engine, canvas) {
   buildLights(scene);
 
   // â”€â”€ CARTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  buildMap(scene);
+  await buildMap(scene);
 
   // â”€â”€ Rendre tous les Ã©lÃ©ments de la carte "Solides" pour la camÃ©ra â”€â”€
   scene.collisionsEnabled = true;
@@ -1083,35 +1083,19 @@ async function buildScene(engine, canvas) {
 //  ðŸ’¡  LUMIÃˆRES
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function buildLights(scene) {
-  // HÃ©misphÃ©rique â€” ambiance globale froide
+  // Eclairage plus neutre, sans ambiance bleue prononcee
   const hemi        = new BABYLON.HemisphericLight("hemi", BABYLON.Vector3.Up(), scene);
-  hemi.intensity    = 0.28;
-  hemi.diffuse      = new BABYLON.Color3(0.18, 0.28, 0.50);
-  hemi.groundColor  = new BABYLON.Color3(0.02, 0.03, 0.06);
+  hemi.intensity    = 0.45;
+  hemi.diffuse      = new BABYLON.Color3(0.95, 0.95, 0.95);
+  hemi.groundColor  = new BABYLON.Color3(0.30, 0.30, 0.30);
   hemi.specular     = BABYLON.Color3.Black();
 
-  // Directionnelle â€” lumiÃ¨re lunaire froide
+  // Directionnelle principale
   const moon       = new BABYLON.DirectionalLight("moon", new BABYLON.Vector3(-0.4, -1.0, -0.35), scene);
-  moon.intensity   = 0.60;
-  moon.diffuse     = new BABYLON.Color3(0.60, 0.72, 1.00);
-  moon.specular    = new BABYLON.Color3(0.08, 0.14, 0.28);
+  moon.intensity   = 0.95;
+  moon.diffuse     = new BABYLON.Color3(1.0, 0.98, 0.94);
+  moon.specular    = new BABYLON.Color3(0.20, 0.20, 0.20);
   moon.position    = new BABYLON.Vector3(25, 40, -15);
-
-  // Points ARIA â€” nÃ©ons bleus Ã©lectriques sur les bÃ¢timents
-  [
-    { p: [  0,  6,  18], r: 20, i: 110 },  // BÃ¢timent principal
-    { p: [-15,  5,  12], r: 15, i:  75 },  // Aile gauche
-    { p: [ 15,  5,  12], r: 15, i:  75 },  // Aile droite
-    { p: [-22,  4,  -6], r: 14, i:  60 },  // BibliothÃ¨que
-    { p: [  0,  2, -30], r: 10, i:  35 },  // EntrÃ©e
-    { p: [  8,  3,  -4], r:  8, i:  30 },  // Module droit
-  ].forEach(({ p: [x, y, z], r, i }, idx) => {
-    const pt      = new BABYLON.PointLight(`pt${idx}`, new BABYLON.Vector3(x, y, z), scene);
-    pt.diffuse    = new BABYLON.Color3(0.12, 0.52, 1.00);
-    pt.specular   = new BABYLON.Color3(0.04, 0.22, 0.60);
-    pt.range      = r;
-    pt.intensity  = i;
-  });
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1129,7 +1113,46 @@ function mkMat(name, scene, diff, emit = null) {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  ðŸ—ºï¸  CARTE DU CAMPUS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-function buildMap(scene) {
+async function buildMap(scene) {
+  try {
+    const campusImport = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "campus.glb", scene);
+    campusImport.meshes.forEach((m) => {
+      if (m instanceof BABYLON.Mesh) {
+        m.isPickable = true;
+        m.checkCollisions = true;
+      }
+    });
+
+    // Sol physique de secours pour eviter les chutes si le GLB n'a pas de collider utilisable.
+    const fallbackGround = BABYLON.MeshBuilder.CreateGround("fallbackGround", { width: 250, height: 250 }, scene);
+    fallbackGround.position.y = 0;
+    fallbackGround.isVisible = false;
+    fallbackGround.isPickable = true;
+    fallbackGround.checkCollisions = true;
+    new BABYLON.PhysicsAggregate(fallbackGround, BABYLON.PhysicsShapeType.BOX,
+      { mass: 0, restitution: 0, friction: 0.90 }, scene);
+
+    // Ennemi conserve: cube rouge
+    const enemyCampus = BABYLON.MeshBuilder.CreateBox("enemyObj", {size: 1.5}, scene);
+    enemyCampus.position.set(0, 1.5, -15);
+    const mEnemyCampus = new BABYLON.StandardMaterial("mEnemy", scene);
+    mEnemyCampus.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
+    mEnemyCampus.emissiveColor = new BABYLON.Color3(0.5, 0.0, 0.0);
+    enemyCampus.material = mEnemyCampus;
+
+    let alphaCampus = 0;
+    scene.registerBeforeRender(() => {
+      alphaCampus += 0.05;
+      enemyCampus.position.y = 1.5 + Math.sin(alphaCampus) * 0.2;
+      enemyCampus.rotation.y += 0.02;
+    });
+
+    scene.enemyAlpha = enemyCampus;
+    return;
+  } catch (e) {
+    console.warn("Impossible de charger campus.glb, retour sur la map procedural.", e);
+  }
+
   const mGround = mkMat("mGr", scene, P.ground);
   const mA      = mkMat("mA",  scene, P.bldA);
   const mB      = mkMat("mB",  scene, P.bldB);
@@ -1462,8 +1485,8 @@ function buildCamera(scene, canvas, playerMesh) {
   cam.wheelDeltaPercentage  = 0.022;
   
   // Rend la camÃ©ra un poil plus lourde/cinÃ©matique sous la souris
-  cam.angularSensibilityX   = 3000; 
-  cam.angularSensibilityY   = 3000;
+  cam.angularSensibilityX   = 5000; 
+  cam.angularSensibilityY   = 5000;
   cam.panningSensibility    = 0;
 
   // Initialise le FOV

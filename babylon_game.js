@@ -3,19 +3,28 @@ const engine = new BABYLON.Engine(canvas, true);
 
 const createScene = async function () {
     const scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0.03, 0.03, 0.04, 1);
 
     // Camera
     const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 2.5, 10, new BABYLON.Vector3(0, 1, 0), scene);
     camera.attachControl(canvas, true);
 
-    // Lumière
+    // Lumière plus neutre pour le campus importé
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-    light.intensity = 0.7;
-    const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
-    dirLight.position = new BABYLON.Vector3(20, 40, 20);
+    light.intensity = 0.45;
+    light.groundColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
-    // Environnement basique
-    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 100, height: 100}, scene);
+    const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.8, -1.2, -0.6), scene);
+    dirLight.intensity = 1.15;
+    dirLight.position = new BABYLON.Vector3(40, 60, 20);
+
+    // Environnement réel depuis le fichier campus.glb
+    const campusResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "campus.glb", scene);
+    campusResult.meshes.forEach((mesh) => {
+        if (mesh instanceof BABYLON.Mesh) {
+            mesh.isPickable = true;
+        }
+    });
     
     // Charger le personnage (mesh principal)
     const result = await BABYLON.SceneLoader.ImportMeshAsync("", "mannequins/", "SKM_Manny_Simple.glb", scene);
@@ -279,8 +288,6 @@ const createScene = async function () {
     let verticalVelocity = 0;
     const gravity = -9.81 * 1.5;
 
-    let bossState = "idle";
-    
     // Fonction pour jouer l'animation du héros
     function playAnimation(animKey) {
         let animObj = animGroupsObj[animKey];
