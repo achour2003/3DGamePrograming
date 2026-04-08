@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:," />
 <title>OVERRIDE â€” Campus Zero</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1035,10 +1036,14 @@ async function init() {
 async function buildScene(engine, canvas) {
   const scene       = new BABYLON.Scene(engine);
   scene.clearColor  = new BABYLON.Color4(0.06, 0.06, 0.07, 1.0);
-  scene.ambientColor = new BABYLON.Color3(0.04, 0.06, 0.10);
+  scene.ambientColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Réduit pour permettre aux ombres d'exister
+  // Indispensable pour que les matériaux PBR (du .glb) réagissent bien à la lumière :
+  scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://playground.babylonjs.com/textures/environment.dds", scene);
+  // scene.environmentIntensity = 0.5; // Ajustable
+
   scene.fogMode     = BABYLON.Scene.FOGMODE_EXP2;
   scene.fogColor    = new BABYLON.Color3(0.08, 0.08, 0.09);
-  scene.fogDensity  = 0.0080;
+  scene.fogDensity  = 0.0020; // Réduction drastique du brouillard pour y voir clair
 
   // â”€â”€ PHYSIQUE HAVOK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // â”€â”€ Charger Havok dynamiquement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1083,19 +1088,42 @@ async function buildScene(engine, canvas) {
 //  ðŸ’¡  LUMIÃˆRES
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function buildLights(scene) {
-  // Eclairage plus neutre, sans ambiance bleue prononcee
+  // Eclairage plus neutre et plus fort pour l'intérieur
   const hemi        = new BABYLON.HemisphericLight("hemi", BABYLON.Vector3.Up(), scene);
-  hemi.intensity    = 0.45;
-  hemi.diffuse      = new BABYLON.Color3(0.95, 0.95, 0.95);
-  hemi.groundColor  = new BABYLON.Color3(0.30, 0.30, 0.30);
-  hemi.specular     = BABYLON.Color3.Black();
+  hemi.intensity    = 0.4; // Baissé pour laisser les ombres du soleil dominer
+  hemi.diffuse      = new BABYLON.Color3(1.0, 1.0, 1.0);
+  hemi.groundColor  = new BABYLON.Color3(0.5, 0.5, 0.5);
+  hemi.specular     = new BABYLON.Color3(0.1, 0.1, 0.1);
 
-  // Directionnelle principale
-  const moon       = new BABYLON.DirectionalLight("moon", new BABYLON.Vector3(-0.4, -1.0, -0.35), scene);
-  moon.intensity   = 0.95;
-  moon.diffuse     = new BABYLON.Color3(1.0, 0.98, 0.94);
-  moon.specular    = new BABYLON.Color3(0.20, 0.20, 0.20);
-  moon.position    = new BABYLON.Vector3(25, 40, -15);
+  // Directionnelle principale (Le Soleil)
+  const sunLight    = new BABYLON.DirectionalLight("sunLight", new BABYLON.Vector3(-0.5, -1.0, -0.5), scene);
+  sunLight.intensity   = 2.5; // Très lumineux pour créer de vraies ombres
+  sunLight.diffuse     = new BABYLON.Color3(1.0, 0.95, 0.85);
+  sunLight.specular    = new BABYLON.Color3(0.5, 0.5, 0.5);
+  sunLight.position    = new BABYLON.Vector3(100, 200, 100);
+
+  // Ombres !
+  const shadowGenerator = new BABYLON.ShadowGenerator(2048, sunLight);
+  shadowGenerator.useBlurExponentialShadowMap = true;
+  shadowGenerator.blurKernel = 32;
+  scene.shadowGenerator = shadowGenerator; // On le stocke pour pouvoir y ajouter la carte tout à l'heure
+
+  // Rendu visuel du Soleil (Une grande sphère dans le ciel)
+  const sunMesh = BABYLON.MeshBuilder.CreateSphere("sunMesh", { diameter: 40 }, scene);
+  sunMesh.position = sunLight.position.clone();
+  
+  const sunMat = new BABYLON.StandardMaterial("sunMat", scene);
+  sunMat.emissiveColor = new BABYLON.Color3(1.0, 0.9, 0.6); // Couleur jaune soleil
+  sunMat.disableLighting = true; // Pas affecté par les ombres, il brille de lui-même
+  sunMesh.material = sunMat;
+
+  // Ajouter un effet de brillance/bloom global pour que le soleil et les néons brillent vraiment
+  if (!scene.glowLayer) {
+      scene.glowLayer = new BABYLON.GlowLayer("glow", scene, {
+          mainTextureSamples: 2
+      });
+      scene.glowLayer.intensity = 1.2;
+  }
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1115,11 +1143,29 @@ function mkMat(name, scene, diff, emit = null) {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function buildMap(scene) {
   try {
-    const campusImport = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "campus.glb", scene);
+    const campusImport = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "nouveau model campus1.glb", scene);
     campusImport.meshes.forEach((m) => {
       if (m instanceof BABYLON.Mesh) {
         m.isPickable = true;
-        m.checkCollisions = true;
+        m.checkCollisions = true; // Utile pour la caméra
+        m.receiveShadows = true;  // Le sol et les murs reçoivent les ombres
+
+        // Si le mesh génère des ombres (par exemple les murs/toits)
+        if (scene.shadowGenerator) {
+            scene.shadowGenerator.addShadowCaster(m, true);
+        }
+
+        // --- COLLISIONS HAVOK EXACTES ---
+        // On n'ajoute la physique Havok que s'il s'agit d'un "vrai" mesh avec une géométrie (des vertices), 
+        // sinon Havok plantera sur les meshes vides (les "TransformNodes").
+        if (m.getTotalVertices() > 0) {
+            new BABYLON.PhysicsAggregate(
+                m, 
+                BABYLON.PhysicsShapeType.MESH, 
+                { mass: 0, restitution: 0, friction: 0.8 }, // mass: 0 => objet statique (mur/sol)
+                scene
+            );
+        }
       }
     });
 
@@ -1139,6 +1185,11 @@ async function buildMap(scene) {
     mEnemyCampus.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
     mEnemyCampus.emissiveColor = new BABYLON.Color3(0.5, 0.0, 0.0);
     enemyCampus.material = mEnemyCampus;
+    enemyCampus.receiveShadows = true;
+
+    if (scene.shadowGenerator) {
+        scene.shadowGenerator.addShadowCaster(enemyCampus, true);
+    }
 
     let alphaCampus = 0;
     scene.registerBeforeRender(() => {
@@ -1150,7 +1201,7 @@ async function buildMap(scene) {
     scene.enemyAlpha = enemyCampus;
     return;
   } catch (e) {
-    console.warn("Impossible de charger campus.glb, retour sur la map procedural.", e);
+    console.warn("Impossible de charger nouveau model campus1.glb, retour sur la map procedural.", e);
   }
 
   const mGround = mkMat("mGr", scene, P.ground);
@@ -1328,7 +1379,7 @@ async function buildPlayer(scene) {
     capSubdivisions: 6,
     subdivisions:    1,
   }, scene);
-  mesh.position.set(0, 2.0, -5);
+  mesh.position.set(0, 2.0, -30); // Décalé de l'origine (x:0, z:-30) pour sortir de la petite chambre
   mesh.isVisible      = false;
   mesh.isPickable     = false;
 
@@ -1353,6 +1404,14 @@ async function buildPlayer(scene) {
   hero.parent = visual;
   // Position pour aligner les pieds sur le bas de la capsule
   hero.position.y = -CFG.capHeight / 2;
+
+  // Appliquer les ombres au personnage
+  result.meshes.forEach(m => {
+    m.receiveShadows = true;
+    if (scene.shadowGenerator) {
+        scene.shadowGenerator.addShadowCaster(m, true);
+    }
+  });
 
   // On dÃ©truit les animations internes pour repartir Ã  zÃ©ro
   if (result.animationGroups) {

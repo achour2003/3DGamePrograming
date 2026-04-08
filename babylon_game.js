@@ -18,8 +18,8 @@ const createScene = async function () {
     dirLight.intensity = 1.15;
     dirLight.position = new BABYLON.Vector3(40, 60, 20);
 
-    // Environnement réel depuis le fichier campus.glb
-    const campusResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "campus.glb", scene);
+    // Environnement réel depuis le fichier nouveau model campus1.glb
+    const campusResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "nouveau model campus1.glb", scene);
     campusResult.meshes.forEach((mesh) => {
         if (mesh instanceof BABYLON.Mesh) {
             mesh.isPickable = true;
@@ -30,10 +30,11 @@ const createScene = async function () {
     const result = await BABYLON.SceneLoader.ImportMeshAsync("", "mannequins/", "SKM_Manny_Simple.glb", scene);
     const hero = result.meshes[0];
     hero.scaling = new BABYLON.Vector3(1, 1, 1);
+    hero.position = new BABYLON.Vector3(0, 0, -30); // Décalé de l'origine (x:0, z:-30) pour sortir de la petite chambre
     
     // --- CLONAGE DE L'ENNEMI (Boss = Cube Rouge) ---
     const boss = BABYLON.MeshBuilder.CreateBox("boss", {size: 3}, scene);
-    boss.position = new BABYLON.Vector3(0, 1.5, 8); // On le place devant le joueur
+    boss.position = new BABYLON.Vector3(0, 1.5, -20); // Ajusté à proximité du joueur (vers le centre)
 
     // Création d'un Material spécifique pour le boss
     const bossMaterial = new BABYLON.StandardMaterial("bossMat", scene);
@@ -66,7 +67,7 @@ const createScene = async function () {
 
     let bossState = "idle";
     let bossAnimTime = 0;
-    const bossStartPos = new BABYLON.Vector3(0, 1.5, 8); // Position d'origine du boss
+    const bossStartPos = new BABYLON.Vector3(0, 1.5, -20); // Position d'origine du boss
 
     // Fonction pour charger et lier une animation à un mesh donné
     async function loadAnimation(folder, file, keyName, targetNode, animDict, isLooping = true) {
