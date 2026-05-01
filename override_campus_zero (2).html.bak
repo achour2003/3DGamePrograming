@@ -363,16 +363,12 @@ const CFG = {
   camLerp:           0.25,     
   camFovLerp:        0.04,     
 
-  // Auto-follow + anti-occlusion HYBRIDE
+  // Auto-follow + anti-occlusion
   camAutoFollowStrength: 0.09,
-  camObstructionBuffer:  0.3,
-  camRestoreSpeed:       0.045,   // Éloignement fluide quand obstacle disparaît
-  camCutInSpeed:         0.18,    // Rapprochement modéré et cinématique
-  camFadeInSpeed:        0.12,    // Vitesse fondu vers transparent
-  camFadeOutSpeed:       0.06,    // Vitesse fondu retour opaque (plus lent = plus doux)
-  camFadeTarget:         0.12,    // Opacité cible (presque transparent)
-  camMinObstructionR:    1.6,     // Ne JAMAIS se rapprocher plus que ça
-  camZoomInRatio:        0.55,    // On rapproche de 55% vers l'obstacle
+  camObstructionBuffer:  0.45,
+  camRestoreSpeed:       0.08,
+  camCutInSpeed:         0.34,
+  camObstacleFade:       0.28,
   camMouseLookX:         0.0018,
   camMouseLookY:         0.0015,
 };
@@ -434,126 +430,69 @@ function lerpAngle(from, to, t) {
   return from + delta * t;
 }
 
-function setMeshTransparencyMode(mesh, isTransparent) {
-  if (!mesh.material) return;
-  const setMode = (mat) => {
-    if (!mat) return;
-    if (mat.subMaterials) {
-      mat.subMaterials.forEach(setMode);
-    } else if (typeof mat.transparencyMode !== "undefined") {
-      if (isTransparent && mat.transparencyMode === 0) {
-        mat.transparencyMode = 2; // ALPHABLEND
-        mat.needDepthPrePass = true;
-      } else if (!isTransparent && mat.transparencyMode === 2) {
-        mat.transparencyMode = 0; // OPAQUE
-        mat.needDepthPrePass = false;
-      }
-    }
-  };
-  setMode(mesh.material);
-}
-
 function restoreOccludingMeshes() {
-  const toRemove = [];
   G.occludingMeshes.forEach((mesh) => {
     if (mesh && !mesh.isDisposed()) {
-      mesh.visibility = BABYLON.Scalar.Lerp(mesh.visibility, 1.0, 0.08);
-      if (mesh.visibility > 0.98) {
-        mesh.visibility = 1.0;
-        setMeshTransparencyMode(mesh, false);
-        toRemove.push(mesh);
-      }
-    } else {
-      toRemove.push(mesh);
+      mesh.visibility = 1.0;
     }
   });
-  toRemove.forEach(m => G.occludingMeshes.delete(m));
+  G.occludingMeshes.clear();
 }
 
 function resolveCameraObstruction(scene, camera, target, playerMesh, desiredRadius) {
+  // MAJ AAA cruciale: S'assurer que le calcul de la position de la camÃ©ra 
+  // est Ã  jour avec son nouveau `target` de cette frame !
+  // Sans Ã§a, la soustraction utilise la position de la frame prÃ©cÃ©dente => bug de dÃ©calage/jitter.
   camera.computeWorldMatrix();
 
   const toCamera = camera.position.subtract(target);
-  if (toCamera.length() < 0.001) return false;
-  const dir = toCamera.normalize();
+  const dist = toCamera.length();
+  if (dist < 0.001) return false;
 
+  const dir = toCamera.normalize();
+  // IMPORTANT POUR Ã‰VITER LES VIBRATIONS : 
+  // Le rayon de détection doit absolument mesurer la longueur `desiredRadius` et non pas la distance actuelle.
+  // Sinon, quand la caméra se rapproche, la distance est plus courte, le mur n'est plus détecté, 
+  // la caméra recule, retouche le mur, etc. -> C'est ça qui crée la vibration.
   const ray = new BABYLON.Ray(target, dir, desiredRadius);
   
-  const hits = scene.multiPickWithRay(ray, (m) => {
-    if (!m || m.isDisposed() || m === playerMesh || !m.checkCollisions || !m.isPickable) return false;
-    let c = m; while(c) { if (c === playerMesh || c.name.startsWith("player")) return false; c = c.parent; }
-    return true;
-  });
-
-  const currentOccluders = new Set();
-  let safeRadius = desiredRadius;
-
-  if (hits && hits.length > 0) {
-    hits.sort((a, b) => a.distance - b.distance);
-    const closestDist = hits[0].distance;
-    const targetSafeRadius = closestDist - 0.2;
+  const hit = scene.pickWithRay(ray, (m) => {
+    if (!m || m.isDisposed()) return false;
+    if (m === playerMesh) return false;
     
-    if (targetSafeRadius < 1.5) {
-        safeRadius = 1.5;
-    } else {
-        safeRadius = targetSafeRadius;
+    // On doit absolument ignorer toutes les parties du maillage 3D du joueur (bras, jambes, dos)
+    // Sinon la camÃ©ra rentre en collision avec le joueur quand on regarde vers le haut !
+    let current = m;
+    while (current) {
+        if (current === playerMesh || current.name.startsWith("player")) return false;
+        current = current.parent;
     }
-
-    hits.forEach(h => {
-        if (h.distance <= desiredRadius) {
-            currentOccluders.add(h.pickedMesh);
-        }
-    });
-  }
-
-  // === TON IDÉE : GESTION DES COLLISIONS DE LA CAMÉRA ===
-  // Si le laser détecte un obstacle direct entre le joueur et la caméra, 
-  // on désactive les collisions pour que la caméra puisse pénétrer et rendre le mur transparent.
-  // Sinon, on active les collisions natives de Babylon pour que la caméra "glisse"
-  // physiquement contre les murs sur les côtés sans rentrer dedans par erreur !
-  if (currentOccluders.size > 0) {
-      camera.checkCollisions = false;
-  } else {
-      camera.checkCollisions = true;
-      if (!camera.collisionRadius) {
-          camera.collisionRadius = new BABYLON.Vector3(0.4, 0.4, 0.4);
-      }
-  }
-
-  // === RESTAURATION ===
-  const toRemove = [];
-  G.occludingMeshes.forEach((mesh) => {
-    if (currentOccluders.has(mesh)) return;
-    if (mesh && !mesh.isDisposed()) {
-      mesh.visibility = BABYLON.Scalar.Lerp(mesh.visibility, 1.0, 0.08);
-      if (mesh.visibility > 0.98) {
-        mesh.visibility = 1.0;
-        setMeshTransparencyMode(mesh, false);
-        toRemove.push(mesh);
-      }
-    } else {
-      toRemove.push(mesh);
-    }
-  });
-  toRemove.forEach(m => G.occludingMeshes.delete(m));
-
-  // === FADE DES OCCULTANTS ===
-  currentOccluders.forEach((mesh) => {
-    if (mesh && !mesh.isDisposed()) {
-      G.occludingMeshes.add(mesh);
-      setMeshTransparencyMode(mesh, true);
-      mesh.visibility = BABYLON.Scalar.Lerp(mesh.visibility, 0.15, 0.15);
-    }
+    
+    return m.isPickable && m.checkCollisions;
   });
 
-  // === DÉPLACEMENT DE LA CAMÉRA ===
-  if (safeRadius < camera.radius) {
-    camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, 0.25);
-  } else {
-    camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, 0.05);
-  }
+  restoreOccludingMeshes();
 
-  return currentOccluders.size > 0;
+  if (hit?.hit) {
+    const safeRadius = BABYLON.Scalar.Clamp(
+      hit.distance - CFG.camObstructionBuffer,
+      0.1, // Doit pouvoir aller trÃ¨s prÃ¨s (en dessous de camMinR) si on est dos au mur !
+      desiredRadius,
+    );
+    
+    // Zoom trÃ¨s fluide vers l'obstacle (on accÃ©lÃ¨re un peu le cutInSpeed pour la rÃ©activitÃ©)
+    camera.radius = BABYLON.Scalar.Lerp(camera.radius, safeRadius, CFG.camCutInSpeed * 1.5);
+
+    // DANS LES JEUX AAA: On ne rend presque jamais les objets invisibles (surtout pas un bÃ¢timent entier) 
+    // puisque la camÃ©ra s'est dÃ©jÃ  rapprochÃ©e devant l'obstacle grÃ¢ce au rayon !
+    // Si l'objet Ã©tait dÃ©jÃ  transparent par erreur dans la mÃ©moire, restoreOccludingMeshes() l'aura de toute faÃ§on remis visible.
+
+    return true;
+  } else {
+    // Éloignement fluide quand il n'y a plus d'obstacle
+    camera.radius = BABYLON.Scalar.Lerp(camera.radius, desiredRadius, CFG.camRestoreSpeed);
+    return false;
+  }
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -583,81 +522,9 @@ function loadHavok() {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  âš”ï¸  SYSTÃˆME DE COMBAT AMÃ‰LIORÃ‰
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-// ─── BOSS RUSH PROGRESSION ───────────
-window.GAME_PROGRESSION = {
-    currentBossIndex: 0,
-    playerInventory: { "potion_50": 1, "pa_battery": 1, "stun_bomb": 0, "data_shield": 0 }
-};
-
-window.BOSS_ROSTER = [
-    {
-        id: "alpha", name: "ALPHA (Le Gardien)", hp: 1500, maxHp: 1500, pa: 2, maxPa: 10, atk: 25, def: 10,
-        inventory: { "potion_50": 1, "pa_battery": 0, "stun_bomb": 0, "data_shield": 0 },
-        drop: "potion_50", dropName: "Potion de Soin (50%)",
-        color: new BABYLON.Color3(1, 0.2, 0.2), // Rouge
-        scale: 1.5,
-        spawnPos: new BABYLON.Vector3(0, 1.5, -15)
-    },
-    {
-        id: "beta", name: "BETA (Le Tank Cuirassé)", hp: 3500, maxHp: 3500, pa: 2, maxPa: 10, atk: 15, def: 30,
-        inventory: { "potion_50": 1, "pa_battery": 0, "stun_bomb": 0, "data_shield": 1 },
-        drop: "data_shield", dropName: "Bouclier de Données",
-        color: new BABYLON.Color3(0.2, 0.2, 1), // Bleu
-        scale: 2.0,
-        spawnPos: new BABYLON.Vector3(15, 2.0, -15)
-    },
-    {
-        id: "gamma", name: "GAMMA (L'Assassin)", hp: 1200, maxHp: 1200, pa: 2, maxPa: 10, atk: 60, def: 0,
-        inventory: { "potion_50": 0, "pa_battery": 0, "stun_bomb": 1, "data_shield": 0 },
-        drop: "stun_bomb", dropName: "Grenade Stun",
-        color: new BABYLON.Color3(0.2, 1, 0.2), // Vert
-        scale: 1.2,
-        spawnPos: new BABYLON.Vector3(-15, 1.2, -15)
-    },
-    {
-        id: "omega", name: "OMEGA (Le Maître)", hp: 4000, maxHp: 4000, pa: 4, maxPa: 10, atk: 45, def: 20,
-        inventory: { "potion_50": 3, "pa_battery": 1, "stun_bomb": 2, "data_shield": 2 },
-        drop: "win", dropName: "FIN DU JEU",
-        color: new BABYLON.Color3(1, 0.8, 0), // Doré
-        scale: 2.5,
-        spawnPos: new BABYLON.Vector3(0, 2.5, 20)
-    }
-];
-
-window.spawnActiveBoss = function(scene) {
-    if (scene.activeBoss) {
-        scene.activeBoss.dispose();
-    }
-    
-    if (GAME_PROGRESSION.currentBossIndex >= BOSS_ROSTER.length) {
-        return; // Victoire totale
-    }
-    
-    const bossConfig = BOSS_ROSTER[GAME_PROGRESSION.currentBossIndex];
-    const enemy = BABYLON.MeshBuilder.CreateBox("enemyObj_" + bossConfig.id, {size: bossConfig.scale}, scene);
-    enemy.position.copyFrom(bossConfig.spawnPos);
-    
-    const mEnemy = new BABYLON.StandardMaterial("mEnemy_" + bossConfig.id, scene);
-    mEnemy.diffuseColor = bossConfig.color;
-    mEnemy.emissiveColor = bossConfig.color.scale(0.6);
-    enemy.material = mEnemy;
-    
-    let alpha = 0;
-    scene.registerBeforeRender(() => {
-        if(enemy.isDisposed()) return;
-        alpha += 0.05;
-        enemy.position.y = bossConfig.spawnPos.y + Math.sin(alpha) * 0.2;
-        enemy.rotation.y += 0.02;
-    });
-    
-    scene.activeBoss = enemy;
-};
-
 const COMBAT = {
   active: false,
   turn: 'NONE', // 'PLAYER', 'ENEMY', 'BUSY'
-  combatMenuState: 'MAIN', // MAIN, INVENTORY, CHARGED_STRIKE
   enemyMesh: null,
   playerMesh: null,
   camera: null,
@@ -666,85 +533,68 @@ const COMBAT = {
   cameraFocusTurn: 'PLAYER',
   prevCameraState: null,
   
+  // IA & Entities
   playerEntity: null,
   enemyEntity: null,
-  aiEngine: null,
+  aiEngine: null, // Moteur d'IA
 
-  getPaMultiplier: function(pa) {
-      if (pa <= 0) return 1.0;
-      const mults = [1.0, 1.3, 1.65, 2.0, 2.35, 2.6, 2.8, 2.95, 3.1, 3.2];
-      if (pa < mults.length) return mults[pa];
-      return 3.2 + (pa - 9) * 0.1;
-  },
-
+  // Helper de dégâts maison temporaire (le temps de l'intégration finale)
   calcDamage: function(attacker, defender, skill) {
     let baseAtk = attacker.atk || 10;
     let baseDef = defender.def || 5;
-    
-    if (defender.guarding) baseDef *= 2; 
-
     let pow = skill.power || 0;
+    // Dégâts = (Attaque + Puissance Sort) - (Defense / 2)
     let d = (baseAtk + pow) - Math.floor(baseDef / 2);
-    
-    if (defender.guarding) {
-        d = Math.floor(d * 0.5); 
-        defender.guarding = false; 
-    }
-    
-    // Bouclier de données
-    if (defender.shieldTurns && defender.shieldTurns > 0) {
-        d = Math.floor(d * 0.5);
-    }
-    
-    return Math.max(1, d); 
+    return Math.max(1, d); // Minimum 1 point de dégât
   },
 
+  // RPG cards (Expedition-like option cards)
   abilityCards: [
     {
       id: "strike_basic",
       name: "Frappe Basique",
-      description: "Attaque rapide. (+1 PA)",
+      description: "Une attaque simple au corps a corps.",
       key: "1",
-      paCost: 0,
+      paCost: 1,
       animationKey: "atk1",
-      unlocks: [],
+      unlocks: ["strike_heavy"],
     },
     {
       id: "guard",
-      name: "Posture Défensive",
-      description: "Encaisse le prochain coup. (+3 PA)",
+      name: "Garde Defensive",
+      description: "Reduit les degats pendant un court instant.",
       key: "2",
-      paCost: 0,
+      paCost: 1,
       animationKey: "idle",
       unlocks: [],
     },
     {
-      id: "strike_charged",
-      name: "Frappe Chargée",
-      description: "Consomme les PA de votre choix (1.3^PA).",
+      id: "battle_cry",
+      name: "Cri de Bataille",
+      description: "Boost temporaire qui debloque une nouvelle frappe.",
       key: "3",
-      paCost: 1, 
+      paCost: 2,
+      animationKey: "jump",
+      unlocks: ["inspired_strike"],
+    },
+    {
+      id: "strike_heavy",
+      name: "Frappe Lourde",
+      description: "Une frappe plus lente et puissante.",
+      key: "4",
+      paCost: 2,
       animationKey: "atk2",
       unlocks: [],
     },
     {
-      id: "qcm",
-      name: "Piratage (QCM)",
-      description: "Piratez pour obtenir un objet ! (Risqué)",
-      key: "4",
+      id: "inspired_strike",
+      name: "Frappe Inspiree",
+      description: "Frappe speciale debloquee via Cri de Bataille.",
+      key: "5",
       paCost: 2,
-      animationKey: "idle",
+      animationKey: "atk2",
       unlocks: [],
     },
-    {
-      id: "inventory",
-      name: "Inventaire",
-      description: "Utilisez vos objets de combat. (Action Libre)",
-      key: "5",
-      paCost: 0,
-      animationKey: "idle",
-      unlocks: [],
-    }
   ],
   unlockedAbilityCards: null,
   abilityCooldowns: null,
@@ -767,111 +617,13 @@ const COMBAT = {
   renderAbilityMenu: function() {
     const menu = document.getElementById("cMenu");
     if (!menu) return;
-
-    // === SOUS-MENU INVENTAIRE ===
-    if (this.combatMenuState === 'INVENTORY') {
-        let html = `<div style="color:white; font-family:monospace; margin-bottom:10px; font-weight:bold;">INVENTAIRE (Action Libre)</div>`;
-        const itemsInfo = {
-            "potion_50": { name: "Potion de Soin 50%", desc: "Restaure 50% de vos HP max" },
-            "pa_battery": { name: "Batterie PA", desc: "Donne immédiatement 4 PA" },
-            "stun_bomb": { name: "Grenade Stun", desc: "Paralyse l'adversaire (1 tour)" },
-            "data_shield": { name: "Bouclier de Données", desc: "Dégâts reçus réduits de 50% (2 tours)" }
-        };
-
-        let hasItem = false;
-        let keyIdx = 1;
-        for (let itemId in itemsInfo) {
-            const qty = this.playerEntity.inventory[itemId] || 0;
-            if (qty > 0) {
-                hasItem = true;
-                const info = itemsInfo[itemId];
-                html += `
-                  <div class="action-box" onclick="COMBAT.useItem('${itemId}')">
-                    <span class="hotkey">${keyIdx}</span>
-                    <div class="content">
-                      <div class="act-name">[${qty}x] ${info.name}</div>
-                      <div class="act-desc">${info.desc}</div>
-                    </div>
-                  </div>
-                `;
-                keyIdx++;
-            }
-        }
-        if (!hasItem) {
-            html += `<p style="color:#ff4444; font-family:monospace;">Inventaire vide. Utilisez le Piratage QCM.</p>`;
-        }
-        html += `
-          <div class="action-box" onclick="COMBAT.combatMenuState='MAIN'; COMBAT.updateUI();">
-            <span class="hotkey">0</span>
-            <div class="content">
-              <div class="act-name">Retour / Annuler</div>
-              <div class="act-desc">Touche 0 ou Échap</div>
-            </div>
-          </div>
-        `;
-        menu.innerHTML = html;
-        return;
-    }
-
-    // === SOUS-MENU FRAPPE CHARGÉE ===
-    if (this.combatMenuState === 'CHARGED_STRIKE') {
-        let html = `<div style="color:white; font-family:monospace; margin-bottom:10px; font-weight:bold;">SÉLECTIONNEZ LES PA À INVESTIR</div>`;
-        const maxPa = this.playerEntity.pa || 0;
-        if (maxPa < 1) {
-            html += `<p style="color:#ff4444; font-family:monospace;">Pas assez de PA !</p>`;
-        } else {
-            for (let i = 1; i <= 8; i++) {
-                if (i > maxPa) break;
-                html += `
-                  <div class="action-box" onclick="COMBAT.executeChargedStrike(${i})">
-                    <span class="hotkey">${i}</span>
-                    <div class="content">
-                      <div class="act-name">Puissance Niv. ${i}</div>
-                      <div class="act-desc">Dégâts x ${COMBAT.getPaMultiplier(i).toFixed(2)} (-${i} PA)</div>
-                    </div>
-                  </div>
-                `;
-            }
-            html += `
-              <div class="action-box" onclick="COMBAT.executeChargedStrike(${maxPa})" style="border-color:#ff4444; box-shadow:0 0 8px #ff4444;">
-                <span class="hotkey" style="color:#ff4444;">9</span>
-                <div class="content">
-                  <div class="act-name" style="color:#ff4444; font-weight:bold;">FRAPPE DÉVASTATRICE</div>
-                  <div class="act-desc">Consomme TOUT (${maxPa} PA) -> Dégâts x ${COMBAT.getPaMultiplier(maxPa).toFixed(2)}</div>
-                </div>
-              </div>
-            `;
-        }
-        html += `
-          <div class="action-box" onclick="COMBAT.combatMenuState='MAIN'; COMBAT.updateUI();">
-            <span class="hotkey">0</span>
-            <div class="content">
-              <div class="act-name">Retour / Annuler</div>
-              <div class="act-desc">Touche 0 ou Échap</div>
-            </div>
-          </div>
-        `;
-        menu.innerHTML = html;
-        return;
-    }
-
-    // === MENU PRINCIPAL ===
-    if (this.combatMenuState === 'QCM') {
-        menu.innerHTML = "";
-        return;
-    }
-
     const cards = this.getAvailableAbilityCards();
     if (!this.selectedAbilityCardId || !cards.some((c) => c.id === this.selectedAbilityCardId)) {
       this.selectedAbilityCardId = cards[0]?.id || null;
     }
     menu.innerHTML = cards.map((card) => {
       const isCd = this.isAbilityOnCooldown(card.id);
-      let costStr = card.paCost + " PA";
-      if (card.id === "strike_charged") costStr = "Choix (Min 1)";
-      if (card.id === "inventory") costStr = "Action Libre";
-      if (card.paCost === 0 && card.id !== "inventory") costStr = "Génère PA";
-      const cd = isCd ? "COOLDOWN" : costStr;
+      const cd = isCd ? "COOLDOWN" : (card.paCost + " PA");
       const isActive = this.selectedAbilityCardId === card.id;
       return `
         <div class="action-box ${isActive ? "active" : ""} ${isCd ? "cooldown" : ""}">
@@ -879,102 +631,51 @@ const COMBAT = {
           <div class="content">
             <div class="act-name">${card.name}</div>
             <div class="act-desc">${card.description}</div>
-            <div class="act-cost">Coût: ${cd}</div>
+            <div class="act-cost">Consomme: ${cd}</div>
           </div>
         </div>
       `;
     }).join("");
   },
 
-  useItem: function(itemId) {
-      if (!this.playerEntity.inventory[itemId]) return;
-      this.playerEntity.inventory[itemId]--;
-      
-      this.combatMenuState = 'MAIN';
-      this.setTurn('BUSY');
-
-      if (itemId === "potion_50") {
-          const heal = Math.floor(this.playerEntity.maxHp * 0.5);
-          this.playerEntity.hp = Math.min(this.playerEntity.maxHp, this.playerEntity.hp + heal);
-          this.log("OBJET UTILISÉ : Soin de " + heal + " HP.");
-      } else if (itemId === "pa_battery") {
-          this.playerEntity.pa += 4;
-          this.log("OBJET UTILISÉ : +4 PA obtenus.");
-      } else if (itemId === "stun_bomb") {
-          this.enemyEntity.stunned = true;
-          this.log("OBJET UTILISÉ : L'ennemi passera son prochain tour !");
-      } else if (itemId === "data_shield") {
-          this.playerEntity.shieldTurns = 2;
-          this.log("OBJET UTILISÉ : Bouclier de Données activé ! (-50% dégâts reçus pendant 2 tours)");
-      }
-
-      this.updateUI();
-      setTimeout(() => this.setTurn('PLAYER'), 800);
-  },
-
-  executeChargedStrike: function(paInvested) {
-      if (this.playerEntity.pa < paInvested) return;
-      this.combatMenuState = 'MAIN';
-      this.setTurn('BUSY');
-      
-      this.playerEntity.pa -= paInvested;
-      if (window.playerEntityObj) window.playerEntityObj.playAnim("atk2");
-      
-      const baseDmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 15 });
-      const dmg = Math.floor(baseDmg * this.getPaMultiplier(paInvested));
-      if (this.enemyEntity.applyDamage) this.enemyEntity.applyDamage(dmg); else this.enemyEntity.hp -= dmg;
-      
-      this.log("FRAPPE CHARGÉE (" + paInvested + " PA) : " + dmg + " DÉGÂTS DÉVASTATEURS !");
-      
-      this.updateUI();
-      setTimeout(() => this.checkWinLoss('ENEMY'), 1100);
-  },
-
   useAbilityCard: function(card) {
     if (this.turn !== 'PLAYER' || !card) return;
     if (!this.unlockedAbilityCards || !this.unlockedAbilityCards.has(card.id)) return;
     if (this.isAbilityOnCooldown(card.id)) return this.log(card.name + " est en cooldown.");
-    
-    if (card.id === "strike_charged") {
-        if (this.playerEntity.pa < 1) return this.log("Pas assez de PA !");
-        this.combatMenuState = 'CHARGED_STRIKE';
-        this.updateUI();
-        return;
-    }
-    
-    if (card.id === "inventory") {
-        this.combatMenuState = 'INVENTORY';
-        this.updateUI();
-        return;
-    }
-
-    let cost = card.paCost || 0;
-    if ((this.playerEntity.pa || 0) < cost) return this.log("Pas assez de PA !");
+    if ((this.playerEntity.pa || 0) < (card.paCost || 0)) return this.log("Pas assez de PA !");
 
     this.setTurn('BUSY');
-    let endsTurn = true;
+    this.playerEntity.pa -= (card.paCost || 0);
 
-    if (window.playerEntityObj && card.animationKey && card.id !== "qcm") {
+    if (window.playerEntityObj && card.animationKey) {
       window.playerEntityObj.playAnim(card.animationKey);
     }
 
     if (card.id === "strike_basic") {
-      this.playerEntity.pa += 1;
       const dmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 15 });
-      if (this.enemyEntity.applyDamage) this.enemyEntity.applyDamage(dmg); else this.enemyEntity.hp -= dmg;
-      this.log("FRAPPE BASIQUE : " + dmg + " dégâts. (+1 PA)");
-    } 
-    else if (card.id === "guard") {
-      this.playerEntity.pa += 3;
-      this.playerEntity.guarding = true;
-      this.log("POSTURE DÉFENSIVE : Vous encaissez le prochain coup ! (+3 PA)");
-    } 
-    else if (card.id === "qcm") {
-      this.playerEntity.pa -= 2;
-      endsTurn = false; 
-      this.showQCM();
-      return; 
-    } 
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE BASIQUE : " + dmg + " degats.");
+    } else if (card.id === "strike_heavy") {
+      const dmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 26 });
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE LOURDE : " + dmg + " degats.");
+    } else if (card.id === "inspired_strike") {
+      const dmg = this.calcDamage(this.playerEntity, this.enemyEntity, { power: 34 });
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE INSPIREE : " + dmg + " degats.");
+    } else if (card.id === "guard") {
+      this.playerEntity.hp = Math.min(this.playerEntity.maxHp, this.playerEntity.hp + 15);
+      this.log("GARDE DEFENSIVE : +15 HP.");
+    } else if (card.id === "battle_cry") {
+      this.log("CRI DE BATAILLE : puissance concentree.");
+    }
+
+    (card.unlocks || []).forEach((unlockId) => {
+      const exists = this.abilityCards.some((c) => c.id === unlockId);
+      if (exists && this.unlockedAbilityCards && !this.unlockedAbilityCards.has(unlockId)) {
+        this.unlockedAbilityCards.add(unlockId);
+      }
+    });
 
     if (this.abilityCooldowns) {
       this.abilityCooldowns.set(card.id, Date.now() + this.abilityCooldownMs);
@@ -982,223 +683,143 @@ const COMBAT = {
     }
 
     this.updateUI();
-    if (endsTurn) {
-        setTimeout(() => this.checkWinLoss('ENEMY'), 1100);
-    } else {
-        setTimeout(() => this.setTurn('PLAYER'), 500);
-    }
+    setTimeout(() => this.checkWinLoss('ENEMY'), 1100);
   },
 
-  showQCM: function() {
-    this.log("Piratage QCM en cours...");
-    this.combatMenuState = 'QCM';
-    this.updateUI();
-    const qcmDiv = document.createElement("div");
-    qcmDiv.id = "qcmOverlay";
-    qcmDiv.style.position = "absolute";
-    qcmDiv.style.top = "20%";
-    qcmDiv.style.left = "50%";
-    qcmDiv.style.transform = "translateX(-50%)";
-    qcmDiv.style.backgroundColor = "rgba(10, 20, 30, 0.95)";
-    qcmDiv.style.border = "2px solid #00ffcc";
-    qcmDiv.style.padding = "20px";
-    qcmDiv.style.color = "white";
-    qcmDiv.style.zIndex = "1000";
-    qcmDiv.style.width = "450px";
-    qcmDiv.style.textAlign = "center";
-    qcmDiv.style.fontFamily = "monospace";
-    qcmDiv.style.boxShadow = "0 0 15px #00ffcc";
-
-    const questions = [
-        { q: "En réseau, que signifie le sigle DNS ?", options: ["Domain Name System", "Data Network Service", "Digital Node Server"], ans: 0 },
-        { q: "Lequel de ces langages est fortement typé ?", options: ["JavaScript", "Python", "Rust"], ans: 2 },
-        { q: "Qu'est-ce qu'une injection SQL ?", options: ["Une faille de base de données", "Un outil de requêtes rapide", "Une mise à jour système"], ans: 0 },
-        { q: "En algorithmie, quelle est la complexité d'une recherche binaire ?", options: ["O(n)", "O(log n)", "O(n²)"], ans: 1 },
-        { q: "Quel port par défaut est utilisé pour HTTPS ?", options: ["80", "443", "22"], ans: 1 },
-        { q: "Qu'est-ce que le DOM en développement web ?", options: ["Document Object Model", "Data Oriented Module", "Digital Object Matrix"], ans: 0 },
-        { q: "Quel pattern garantit une instance unique d'une classe ?", options: ["Factory", "Observer", "Singleton"], ans: 2 },
-        { q: "Que signifie API ?", options: ["Application Programming Interface", "Advanced Protocol Integration", "Auto Processing Information"], ans: 0 }
-    ];
-    const q = questions[Math.floor(Math.random() * questions.length)];
-    this.currentQCM = { optionsCount: q.options.length, ans: q.ans };
-
-    let html = `<h3>PIRATAGE SYSTÈME (QCM)</h3>
-                <p style="color:#ff4444; font-size:12px; margin-bottom:15px;">ATTENTION: Une mauvaise réponse vous fera perdre votre tour ET vos 2 PA !</p>
-                <p style="font-size:16px;">${q.q}</p>`;
-    q.options.forEach((opt, idx) => {
-        html += `<button onclick="COMBAT.answerQCM(${idx}, ${q.ans})" style="display:block; width:100%; margin:8px 0; padding:10px; background:#111; color:#00ffcc; border:1px solid #00ffcc; cursor:pointer; font-size:14px; transition:0.2s;" onmouseover="this.style.background='#00ffcc';this.style.color='black';" onmouseout="this.style.background='#111';this.style.color='#00ffcc';">[${idx+1}] ${opt}</button>`;
-    });
-    
-    qcmDiv.innerHTML = html;
-    document.body.appendChild(qcmDiv);
-  },
-
-  answerQCM: function(chosenIdx, correctIdx) {
-    const qcmDiv = document.getElementById("qcmOverlay");
-    if (qcmDiv) qcmDiv.remove();
-
-    if (chosenIdx === correctIdx) {
-        const loots = ["potion_50", "pa_battery", "stun_bomb", "data_shield"];
-        const loot = loots[Math.floor(Math.random() * loots.length)];
-        this.playerEntity.inventory[loot] = (this.playerEntity.inventory[loot] || 0) + 1;
-        
-        let lootName = loot === "potion_50" ? "Potion Soin 50%" : 
-                       loot === "pa_battery" ? "Batterie (+4 PA)" : 
-                       loot === "stun_bomb" ? "Grenade Stun" : "Bouclier de Données";
-        this.log("Piratage RÉUSSI ! Vous obtenez : " + lootName);
-        this.updateUI();
-        this.setTurn('PLAYER'); // Garde la main
-    } else {
-        this.log("ÉCHEC CRITIQUE ! Piratage repoussé. FIN DU TOUR !");
-        this.updateUI();
-        this.setTurn('BUSY');
-        setTimeout(() => this.checkWinLoss('ENEMY'), 1200); // Punition sévère
-    }
-  },
-
+  // Fonction pour écouter le clavier pendant le combat
   handleInput: function(evt) {
     if (this.turn !== 'PLAYER') return;
     const key = (evt.key || "").trim();
-    
-    // Raccourcis pour faire RETOUR
-    if (key === "0" || evt.key === "Escape" || evt.key === "Backspace") {
-        if (this.combatMenuState === 'QCM') return; // Impossible d'annuler un QCM
-        if (this.combatMenuState !== 'MAIN') {
-            this.combatMenuState = 'MAIN';
-            this.updateUI();
-        }
-        return;
-    }
-    
     if (!/^\d$/.test(key)) return;
-    const num = parseInt(key);
-
-    if (this.combatMenuState === 'MAIN') {
-        const card = this.getAvailableAbilityCards().find((c) => c.key === key);
-        if (card) {
-          this.selectedAbilityCardId = card.id;
-          this.updateUI();
-          this.useAbilityCard(card);
-        }
-    } 
-    else if (this.combatMenuState === 'INVENTORY') {
-        const itemsInfo = ["potion_50", "pa_battery", "stun_bomb", "data_shield"];
-        let keyIdx = 1;
-        let selectedItem = null;
-        for (let itemId of itemsInfo) {
-            const qty = this.playerEntity.inventory[itemId] || 0;
-            if (qty > 0) {
-                if (keyIdx === num) {
-                    selectedItem = itemId;
-                    break;
-                }
-                keyIdx++;
-            }
-        }
-        if (selectedItem) this.useItem(selectedItem);
-    } 
-    else if (this.combatMenuState === 'CHARGED_STRIKE') {
-        const maxPa = this.playerEntity.pa || 0;
-        if (num >= 1 && num <= 8) {
-            if (num <= maxPa) {
-                this.executeChargedStrike(num);
-            }
-        } else if (num === 9) {
-            if (maxPa >= 1) {
-                this.executeChargedStrike(maxPa);
-            }
-        }
-    }
-    else if (this.combatMenuState === 'QCM') {
-        if (num >= 1 && num <= (this.currentQCM ? this.currentQCM.optionsCount : 4)) {
-            this.answerQCM(num - 1, this.currentQCM.ans);
-        }
+    const card = this.getAvailableAbilityCards().find((c) => c.key === key);
+    if (card) {
+      this.selectedAbilityCardId = card.id;
+      this.updateUI();
+      this.useAbilityCard(card);
     }
   },
 
   init: function(scene, camera, player, enemy) {
     this.active = true;
-    this.combatMenuState = 'MAIN';
     this.enemyMesh = enemy;
     this.playerMesh = player.mesh;
     this.camera = camera;
     this.scene = scene;
     this.turn = 'BUSY';
     this.cameraFocusTurn = 'PLAYER';
-    this.unlockedAbilityCards = new Set(["strike_basic", "guard", "strike_charged", "qcm", "inventory"]);
+    this.unlockedAbilityCards = new Set(["strike_basic", "guard", "battle_cry"]);
     this.abilityCooldowns = new Map();
     this.selectedAbilityCardId = "strike_basic";
     
-    if (typeof AIEngine !== "undefined") this.aiEngine = new AIEngine();
+    // Instancier le moteur central
+    this.aiEngine = new AIEngine();
     
-    // Restaurer HP et PA max selon la consigne
+    // Init Entities via config Object conforme à src/ai/models/Entity.js
     this.playerEntity = new Entity({
-        id: "hero1", name: "Player", hp: 1000, maxHp: 1000, maxPa: 10, pa: 2, atk: 30, def: 5
+        id: "hero1", name: "Player", hp: 1000, maxHp: 1000, maxPa: 4, pa: 4, atk: 30, def: 5
     });
-    this.playerEntity.inventory = window.GAME_PROGRESSION.playerInventory; // Use persistent inventory
-    this.playerEntity.guarding = false;
-    this.playerEntity.stunned = false;
-    this.playerEntity.shieldTurns = 0;
-
-    const bossCfg = window.BOSS_ROSTER[window.GAME_PROGRESSION.currentBossIndex];
-    this.enemyEntity = new Entity({
-        id: bossCfg.id, name: bossCfg.name, hp: bossCfg.hp, maxHp: bossCfg.maxHp, maxPa: bossCfg.maxPa, pa: bossCfg.pa, atk: bossCfg.atk, def: bossCfg.def
+    // Remplissage Array Skills
+    this.playerEntity.skills = [
+        new Skill({ id: "atk1", name: "Frappe Lame", paCost: 1, power: 15, targetType: "single" }),
+        new Skill({ id: "atk2", name: "Surcharge Électrique", paCost: 2, power: 35, targetType: "single" })
+    ];
+    this.playerEntity.inventory = { "potion": 3 };
+    
+    this.enemyEntity = EnemyFactory.fromJSON({
+        id: "alpha1", name: "Entité Alpha", level: 1,
+        stats: { hp: 1440, atk: 37.5, def: 5 },
+        max_pa: 3, stability_max: 100,
+        traits: ["aggressive", "opportunist"],
+        jobClass: "monster",
+        skills: [
+            { id: "eAtk1", name: "Laser Mineur", paCost: 1, power: 10, type: "magical" },
+            { id: "eAtk2", name: "Décharge Plasma", paCost: 2, power: 25, type: "magical" },
+            { id: "eHeal", name: "Régénération", paCost: 2, power: -30, type: "healing" }
+        ]
     });
-    // Clone the inventory so we don't modify the static definition
-    this.enemyEntity.inventory = JSON.parse(JSON.stringify(bossCfg.inventory)); 
-    this.enemyEntity.guarding = false;
-    this.enemyEntity.stunned = false;
-    this.enemyEntity.shieldTurns = 0;
 
-    if (this.scene) {
-      this.boundInputHandler = this.handleInput.bind(this);
-      window.addEventListener("keydown", this.boundInputHandler);
+    // Sauvegarde en global pour accès par callbacks (ex: animation)
+    window.playerEntityObj = window.playerEntityObj || {};
+    window.playerEntityObj.playAnim = (anim) => {
+        if (player.playAnim) player.playAnim(anim);
+    };
 
-      this.prevCameraState = {
-        target: this.camera.target.clone(),
-        alpha: this.camera.alpha,
-        beta: this.camera.beta,
-        radius: this.camera.radius,
-      };
+    // Attacher l'écouteur d'événements clavier pour le combat
+    this.boundInputHandler = this.handleInput.bind(this);
+    window.addEventListener("keydown", this.boundInputHandler);
 
-      this.camera.detachControl();
-      
-      this.cameraStabilizerObserver = this.scene.onBeforeRenderObservable.add(() => {
-        if (!this.active || !this.camera) return;
-        const actor = this.cameraFocusTurn === 'ENEMY' ? this.enemyMesh : this.playerMesh;
-        const opponent = this.cameraFocusTurn === 'ENEMY' ? this.playerMesh : this.enemyMesh;
-        if (!actor || !opponent || actor.isDisposed?.() || opponent.isDisposed?.()) return;
+    player.agg.body.setLinearVelocity(BABYLON.Vector3.Zero());
+    if (player.stopAnim) player.stopAnim();
+    if (player.playAnim) player.playAnim("idle");
 
-        const actorEye = actor.position.add(new BABYLON.Vector3(0, 1.05, 0));
-        const toOpponent = opponent.position.subtract(actor.position);
-        toOpponent.y = 0;
+    this.prevCameraState = {
+      alpha: camera.alpha,
+      beta: camera.beta,
+      radius: camera.radius,
+      target: camera.target.clone(),
+    };
 
-        if (toOpponent.lengthSquared() > 0.0001) {
-          toOpponent.normalize();
-        } else {
-          toOpponent.set(Math.cos(this.camera.alpha), 0, Math.sin(this.camera.alpha));
-        }
-
-        const backDir = toOpponent.scale(-1);
-        const desiredAlpha = Math.atan2(backDir.z, backDir.x);
-        this.camera.target = BABYLON.Vector3.Lerp(this.camera.target, actorEye, 0.26);
-        
-        let dAlpha = desiredAlpha - this.camera.alpha;
-        while (dAlpha > Math.PI) dAlpha -= Math.PI * 2;
-        while (dAlpha < -Math.PI) dAlpha += Math.PI * 2;
-        this.camera.alpha += dAlpha * 0.22;
-        
-        this.camera.beta = BABYLON.Scalar.Lerp(this.camera.beta, Math.PI / 2.25, 0.22);
-        this.camera.radius = BABYLON.Scalar.Lerp(this.camera.radius, 8.8, 0.20);
-      });
+    if (document.pointerLockElement || document.mozPointerLockElement || document.webkitPointerLockElement) {
+      if (document.exitPointerLock) document.exitPointerLock();
+      else if (document.mozExitPointerLock) document.mozExitPointerLock();
+      else if (document.webkitExitPointerLock) document.webkitExitPointerLock();
     }
 
+    // Caméra de combat dynamique verrouillée
+    const midPoint = player.mesh.position.add(enemy.position).scale(0.5);
+    camera.target = midPoint;
+    camera.alpha = -Math.PI / 3;
+    camera.beta = Math.PI / 2.2;
+    camera.radius = 9;
+
+    camera.detachControl();
+    camera.inertialAlphaOffset = 0;
+    camera.inertialBetaOffset = 0;
+    camera.inertialRadiusOffset = 0;
+    camera.lowerAlphaLimit = camera.alpha;
+    camera.upperAlphaLimit = camera.alpha;
+    camera.lowerBetaLimit = camera.beta;
+    camera.upperBetaLimit = camera.beta;
+    camera.lowerRadiusLimit = camera.radius;
+    camera.upperRadiusLimit = camera.radius;
+
+    this.cameraStabilizerObserver = scene.onBeforeRenderObservable.add(() => {
+      if (!this.active || !this.camera || !this.playerMesh || !this.enemyMesh || this.enemyMesh.isDisposed()) return;
+
+      const actor = this.cameraFocusTurn === 'ENEMY' ? this.enemyMesh : this.playerMesh;
+      const opponent = this.cameraFocusTurn === 'ENEMY' ? this.playerMesh : this.enemyMesh;
+      if (!actor || !opponent || actor.isDisposed?.() || opponent.isDisposed?.()) return;
+
+      const actorEye = actor.position.add(new BABYLON.Vector3(0, 1.05, 0));
+      const toOpponent = opponent.position.subtract(actor.position);
+      toOpponent.y = 0;
+
+      if (toOpponent.lengthSquared() > 0.0001) {
+        toOpponent.normalize();
+      } else {
+        toOpponent.set(Math.cos(this.camera.alpha), 0, Math.sin(this.camera.alpha));
+      }
+
+      // Strict behind-active-actor camera: opposite to opponent direction.
+      const backDir = toOpponent.scale(-1);
+      const desiredAlpha = Math.atan2(backDir.z, backDir.x);
+      this.camera.target = BABYLON.Vector3.Lerp(this.camera.target, actorEye, 0.26);
+      this.camera.alpha = lerpAngle(this.camera.alpha, desiredAlpha, 0.22);
+      this.camera.beta = BABYLON.Scalar.Lerp(this.camera.beta, Math.PI / 2.25, 0.22);
+      this.camera.radius = BABYLON.Scalar.Lerp(this.camera.radius, 8.8, 0.20);
+      this.camera.inertialAlphaOffset = 0;
+      this.camera.inertialBetaOffset = 0;
+      this.camera.inertialRadiusOffset = 0;
+    });
+
     document.body.classList.add("combat-mode");
+
     document.getElementById("hud").style.display = "none";
     document.getElementById("combatUI").style.display = "block";
     this.updateUI();
-    this.log("COMBAT INITIÉ. SYSTÈME OPÉRATIONNEL.");
+    this.log("COMBAT INITIÉ. CALCUL DES VECTEURS...");
 
+    // Entrée du joueur (Tour 1)
     setTimeout(() => this.setTurn('PLAYER'), 1500);
   },
 
@@ -1206,167 +827,130 @@ const COMBAT = {
 
   updateUI: function() {
     if(!this.playerEntity) return;
-    document.getElementById("cHpj").textContent = this.playerEntity.hp + " / " + this.playerEntity.maxHp + " (PA: " + this.playerEntity.pa + ")";
-    
-    let pjSt = [];
-    if (this.playerEntity.guarding) pjSt.push("[GARDE]");
-    if (this.playerEntity.shieldTurns > 0) pjSt.push(`[BOUCLIER: ${this.playerEntity.shieldTurns}T]`);
-    document.getElementById("cMpj").textContent = pjSt.join(" "); 
-    
-    document.getElementById("cHpe").textContent = this.enemyEntity.hp + " / " + this.enemyEntity.maxHp + " (PA: " + this.enemyEntity.pa + ")";
-    
-    let totalItems = 0;
-    for (let k in this.playerEntity.inventory) totalItems += this.playerEntity.inventory[k];
+    document.getElementById("cHpj").textContent = this.playerEntity.hp + " (PA: " + this.playerEntity.pa + ")";
+    document.getElementById("cMpj").textContent = "-"; // MP remplacé par PA
+    document.getElementById("cHpe").textContent = this.enemyEntity.hp + " (PA: " + this.enemyEntity.pa + ")";
     const potEl = document.getElementById("cPot");
-    if (potEl) potEl.textContent = totalItems;
+    if (potEl) potEl.textContent = this.playerEntity.inventory["potion"];
 
+    // Afficher ou cacher le menu selon le tour
     const menu = document.getElementById("cMenu");
-    if (menu) {
-      menu.style.opacity = (this.turn === 'PLAYER') ? "1" : "0.3";
-      this.renderAbilityMenu();
-    }
+    menu.style.opacity = (this.turn === 'PLAYER') ? "1" : "0.3";
+    this.renderAbilityMenu();
   },
 
   setTurn: function(who) {
     this.turn = who;
-    this.combatMenuState = 'MAIN'; // Toujours réinitialiser le menu
     
     if (who === 'PLAYER') {
       this.cameraFocusTurn = 'PLAYER';
-      if (this.playerEntity.shieldTurns > 0) this.playerEntity.shieldTurns--;
-      this.log("VOTRE TOUR. Choisissez une action.");
+      this.playerEntity.regeneratePA();
+      const keys = this.getAvailableAbilityCards().map((c) => c.key).join(", ");
+      this.log("VOTRE TOUR. Cartes: " + keys);
     } else if (who === 'ENEMY') {
       this.cameraFocusTurn = 'ENEMY';
-      if (this.enemyEntity.shieldTurns > 0) this.enemyEntity.shieldTurns--;
+      this.enemyEntity.regeneratePA();
       setTimeout(() => this.enemyAI(), 1000);
     }
     this.updateUI();
   },
 
+  action: function(type) {
+    if (this.turn !== 'PLAYER') return;
+
+    if (type === 'ATTACK') {
+      if(this.playerEntity.pa < 1) return this.log("Pas assez de PA !");
+      
+      this.setTurn('BUSY');
+      this.playerEntity.pa -= 1;
+      const skill = this.playerEntity.skills.find(s => s.id === "atk1");
+      
+      let dmg = this.calcDamage(this.playerEntity, this.enemyEntity, skill);
+      this.enemyEntity.applyDamage(dmg);
+      this.log("FRAPPE : Vous infligez " + dmg + " dégâts !");
+      
+      if(window.playerEntityObj) window.playerEntityObj.playAnim("atk1");
+    }
+    else if (type === 'SKILL') {
+      if(this.playerEntity.pa < 2) return this.log("Pas assez de PA !");
+
+      this.setTurn('BUSY');
+      this.playerEntity.pa -= 2;
+      const skill = this.playerEntity.skills.find(s => s.id === "atk2");
+      
+      let dmg = this.calcDamage(this.playerEntity, this.enemyEntity, skill);
+      this.enemyEntity.applyDamage(dmg);
+      this.log("SURCHARGE ÉLECTRIQUE : " + dmg + " dégâts !");
+      
+      if(window.playerEntityObj) window.playerEntityObj.playAnim("atk2");
+    }
+    else if (type === 'ITEM') {
+      if (this.playerEntity.inventory["potion"] > 0) {
+          this.setTurn('BUSY');
+          this.playerEntity.inventory["potion"]--;
+          this.playerEntity.hp = Math.min(this.playerEntity.maxHp, this.playerEntity.hp + 40);
+          this.log("KITS DE RÉPARATION UTILISÉ : +40 HP.");
+      } else {
+          this.log("Inventaire vide !");
+          return this.setTurn('PLAYER');
+      }
+    }
+
+    setTimeout(() => this.checkWinLoss('ENEMY'), 1200);
+  },
+
   enemyAI: async function() {
-    this.log(this.enemyEntity.name + " réfléchit...");
-    await new Promise(r => setTimeout(r, 1000));
+    this.log("L'Entité Alpha prépare sa séquence...");
 
-    if (this.enemyEntity.stunned) {
-        this.log(this.enemyEntity.name + " est PARALYSÉE ! Elle passe son tour.");
-        this.enemyEntity.stunned = false;
-        await new Promise(r => setTimeout(r, 1500));
-        return this.checkWinLoss('PLAYER');
+    // Utilisation de l'IA reconstruite
+    const finalPlan = this.aiEngine.computeTurn(this.enemyEntity, [this.enemyEntity], [this.playerEntity], []);
+    
+    let aiPlan = finalPlan && finalPlan.actions ? finalPlan.actions : [{ type: "wait" }];
+
+        for(const action of aiPlan) {
+        if(action.type === "wait" || !action.skill) {
+            this.log("Alpha termine son tour.");
+            await new Promise(r => setTimeout(r, 1000));
+        } else if (action.skill) {
+            this.enemyEntity.pa -= action.skill.paCost;
+            if (action.skill.type === "healing" || action.skill.power < 0) {
+                let healAmt = Math.abs(action.skill.power);
+                this.enemyEntity.hp = Math.min(this.enemyEntity.maxHp, this.enemyEntity.hp + healAmt);
+                this.log("RÉGÉNÉRATION : +" + healAmt + " HP.");
+            } else {
+                let dmg = this.calcDamage(this.enemyEntity, this.playerEntity, action.skill); 
+                this.playerEntity.applyDamage(dmg);
+                this.log(action.skill.name.toUpperCase() + " ! Vous subissez " + dmg + " dégâts.");
+            }
+            this.updateUI();
+            await new Promise(r => setTimeout(r, 1500));
+        }
     }
 
-    if (this.enemyEntity.hp < this.enemyEntity.maxHp * 0.4 && this.enemyEntity.inventory["potion_50"] > 0) {
-        this.enemyEntity.inventory["potion_50"]--;
-        const heal = Math.floor(this.enemyEntity.maxHp * 0.5);
-        this.enemyEntity.hp = Math.min(this.enemyEntity.maxHp, this.enemyEntity.hp + heal);
-        this.log(bossName + " UTILISE : Potion de Soin (+50% HP) !");
-        this.updateUI();
-        await new Promise(r => setTimeout(r, 1500));
-    }
-
-    if (this.playerEntity.pa >= 4 && this.enemyEntity.inventory["stun_bomb"] > 0) {
-        this.enemyEntity.inventory["stun_bomb"]--;
-        this.playerEntity.stunned = true;
-        this.log(bossName + " UTILISE : Grenade Stun ! Vous serez paralysé !");
-        this.updateUI();
-        await new Promise(r => setTimeout(r, 1500));
-    }
-
-    // Le boss peut aussi utiliser son bouclier s'il se sent menacé
-    if (this.playerEntity.pa >= 3 && this.enemyEntity.inventory["data_shield"] > 0 && this.enemyEntity.shieldTurns === 0) {
-        this.enemyEntity.inventory["data_shield"]--;
-        this.enemyEntity.shieldTurns = 2;
-        this.log(bossName + " UTILISE : Bouclier de Données (-50% de dégâts pour 2 tours)");
-        this.updateUI();
-        await new Promise(r => setTimeout(r, 1500));
-    }
-
-    let actionType = "basic"; 
-
-    if (this.enemyEntity.pa >= 3) {
-        actionType = "charged"; 
-    } else if (this.enemyEntity.pa < 2) {
-        actionType = Math.random() > 0.5 ? "guard" : "basic"; 
-    }
-
-    // IA Spécifique selon le boss
-    if (this.enemyEntity.id === "gamma") {
-        actionType = "basic"; // Assassin ne garde jamais
-        if (this.enemyEntity.pa >= 3) actionType = "charged";
-    } else if (this.enemyEntity.id === "beta") {
-        if (this.enemyEntity.pa < 3) actionType = Math.random() > 0.3 ? "guard" : "basic"; // Tank garde souvent
-    }
-
-    let bossName = this.enemyEntity.name.split(" ")[0]; // ALPHA, BETA...
-
-    if (actionType === "guard") {
-        this.enemyEntity.pa += 3;
-        this.enemyEntity.guarding = true;
-        this.log(bossName + " UTILISE : Posture Défensive (+3 PA) !");
-    } else if (actionType === "basic") {
-        this.enemyEntity.pa += 1;
-        const dmg = this.calcDamage(this.enemyEntity, this.playerEntity, { power: 15 });
-        if (this.playerEntity.applyDamage) this.playerEntity.applyDamage(dmg); else this.playerEntity.hp -= dmg;
-        this.log(bossName + " UTILISE : Frappe Basique (" + dmg + " dégâts, +1 PA)");
-    } else if (actionType === "charged") {
-        const paInvested = this.enemyEntity.pa;
-        this.enemyEntity.pa = 0;
-        const baseDmg = this.calcDamage(this.enemyEntity, this.playerEntity, { power: 15 });
-        const dmg = Math.floor(baseDmg * this.getPaMultiplier(paInvested));
-        if (this.playerEntity.applyDamage) this.playerEntity.applyDamage(dmg); else this.playerEntity.hp -= dmg;
-        this.log(bossName + " UTILISE : Frappe Chargée (" + paInvested + " PA) -> " + dmg + " DÉGÂTS !!!");
-    }
-
-    this.updateUI();
-    await new Promise(r => setTimeout(r, 1500));
-
-    this.checkWinLoss('PLAYER');
+        this.checkWinLoss('PLAYER');
   },
 
   checkWinLoss: function(nextTurn) {
     this.updateUI();
     setTimeout(() => {
       if (this.enemyEntity.hp <= 0) {
-        const bossCfg = window.BOSS_ROSTER[window.GAME_PROGRESSION.currentBossIndex];
-        
-        if (bossCfg.drop === "win") {
-             this.log("VICTOIRE TOTALE ! VOUS AVEZ FINI LE JEU !");
-             setTimeout(() => { alert("Félicitations, vous avez vaincu OMEGA !"); location.reload(); }, 3000);
-             return;
-        }
-
-        // Add loot to persistent inventory
-        window.GAME_PROGRESSION.playerInventory[bossCfg.drop] = (window.GAME_PROGRESSION.playerInventory[bossCfg.drop] || 0) + 1;
-        this.log("VICTOIRE ! BUTIN OBTENU : " + bossCfg.dropName);
-        
-        // Progression
-        window.GAME_PROGRESSION.currentBossIndex++;
-
-        if (this.enemyMesh && !this.enemyMesh.isDisposed()) {
-            this.enemyMesh.dispose();
-        }
-        setTimeout(() => {
-            if (this.scene) {
-                window.spawnActiveBoss(this.scene);
-            }
-            this.endCombat();
-        }, 2000);
+        this.log("ENTITÉ DÉTRUITE. FIN DU PROTOCOLE.");
+        this.enemyMesh.dispose();
+        setTimeout(() => this.endCombat(), 2000);
       } else if (this.playerEntity.hp <= 0) {
         this.log("SYSTÈME CRITIQUE. VOUS ÊTES MORT.");
         setTimeout(() => location.reload(), 3000);
       } else {
-        if (nextTurn === 'PLAYER' && this.playerEntity.stunned) {
-            this.log("VOUS ÊTES PARALYSÉ ! Tour passé.");
-            this.playerEntity.stunned = false;
-            setTimeout(() => this.setTurn('ENEMY'), 1500);
+        if(this.turn === 'PLAYER' && this.playerEntity.pa <= 0) {
+          this.setTurn('ENEMY');
         } else {
-            this.setTurn(nextTurn);
+          this.setTurn(nextTurn);
         }
       }
     }, 500);
   },
 
   endCombat: function() {
-
     this.active = false;
     window.removeEventListener("keydown", this.boundInputHandler);
     document.getElementById("combatUI").style.display = "none";
@@ -1399,8 +983,6 @@ const COMBAT = {
     document.getElementById("renderCanvas").focus();
   }
 };
-
-window.COMBAT = COMBAT;
 
 ;
 
@@ -1596,13 +1178,27 @@ async function buildMap(scene) {
     new BABYLON.PhysicsAggregate(fallbackGround, BABYLON.PhysicsShapeType.BOX,
       { mass: 0, restitution: 0, friction: 0.90 }, scene);
 
-    // Spawner le Boss Actif de la Progression
-    if (window.spawnActiveBoss) {
-        window.spawnActiveBoss(scene);
-        if (scene.shadowGenerator && scene.activeBoss) {
-            scene.shadowGenerator.addShadowCaster(scene.activeBoss, true);
-        }
+    // Ennemi conserve: cube rouge
+    const enemyCampus = BABYLON.MeshBuilder.CreateBox("enemyObj", {size: 1.5}, scene);
+    enemyCampus.position.set(0, 1.5, -15);
+    const mEnemyCampus = new BABYLON.StandardMaterial("mEnemy", scene);
+    mEnemyCampus.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
+    mEnemyCampus.emissiveColor = new BABYLON.Color3(0.5, 0.0, 0.0);
+    enemyCampus.material = mEnemyCampus;
+    enemyCampus.receiveShadows = true;
+
+    if (scene.shadowGenerator) {
+        scene.shadowGenerator.addShadowCaster(enemyCampus, true);
     }
+
+    let alphaCampus = 0;
+    scene.registerBeforeRender(() => {
+      alphaCampus += 0.05;
+      enemyCampus.position.y = 1.5 + Math.sin(alphaCampus) * 0.2;
+      enemyCampus.rotation.y += 0.02;
+    });
+
+    scene.enemyAlpha = enemyCampus;
     return;
   } catch (e) {
     console.warn("Impossible de charger nouveau model campus1.glb, retour sur la map procedural.", e);
@@ -1753,9 +1349,23 @@ async function buildMap(scene) {
     new BABYLON.PhysicsAggregate(wall, BABYLON.PhysicsShapeType.BOX, { mass: 0 }, scene);
   });
   // â•â• ENNEMI (EntitÃ© Alpha) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    if (window.spawnActiveBoss) {
-      window.spawnActiveBoss(scene);
-  }
+  const enemy = BABYLON.MeshBuilder.CreateBox("enemyObj", {size: 1.5}, scene);
+  enemy.position.set(0, 1.5, -15); // PlacÃ© devant le joueur au dÃ©marrage
+  const mEnemy = new BABYLON.StandardMaterial("mEnemy", scene);
+  mEnemy.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
+  mEnemy.emissiveColor = new BABYLON.Color3(0.5, 0.0, 0.0);
+  enemy.material = mEnemy;
+  
+  // Animation de flottaison simple
+  let alpha = 0;
+  scene.registerBeforeRender(() => {
+    alpha += 0.05;
+    enemy.position.y = 1.5 + Math.sin(alpha) * 0.2;
+    enemy.rotation.y += 0.02;
+  });
+  
+  // On le stocke globalement pour le dÃ©tecter
+  scene.enemyAlpha = enemy;
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2069,10 +1679,10 @@ function loop(scene, player, camera, engine) {
   }
 
   // â”€â”€ DÃ‰TECTION ENNEMI (Lancement du combat) â”€â”€â”€â”€â”€â”€â”€â”€
-  if (scene.activeBoss && !scene.activeBoss.isDisposed()) {
-    const dist = BABYLON.Vector3.Distance(player.mesh.position, scene.activeBoss.position);
+  if (scene.enemyAlpha && !scene.enemyAlpha.isDisposed()) {
+    const dist = BABYLON.Vector3.Distance(player.mesh.position, scene.enemyAlpha.position);
     if (dist < 3.0) { // Si le joueur s'approche Ã  moins de 3 mÃ¨tres
-      COMBAT.init(scene, camera, player, scene.activeBoss);
+      COMBAT.init(scene, camera, player, scene.enemyAlpha);
       return;
     }
   }
