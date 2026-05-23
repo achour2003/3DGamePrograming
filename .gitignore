@@ -1,0 +1,6 @@
+# Outils locaux Claude Code
+.claude/
+
+# Sauvegardes / temporaires
+*.bak
+*.tmp

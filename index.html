@@ -322,6 +322,7 @@
 <!-- â”€â”€ BABYLON JS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
 <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script src="./audio.js"></script>
 
 <script type="module">
 import { AIEngine } from './src/ai/AIEngine.js';
@@ -635,22 +636,85 @@ window.spawnActiveBoss = function(scene) {
     }
     
     const bossConfig = BOSS_ROSTER[GAME_PROGRESSION.currentBossIndex];
-    const enemy = BABYLON.MeshBuilder.CreateBox("enemyObj_" + bossConfig.id, {size: bossConfig.scale}, scene);
+    const col = bossConfig.color;
+    const id  = bossConfig.id;
+
+    // ── NOYAU IA : polyèdre cristallin (icosaèdre) au lieu d'un simple cube ──
+    const enemy = BABYLON.MeshBuilder.CreatePolyhedron("enemyObj_" + id, { type: 3, size: bossConfig.scale * 0.55 }, scene);
     enemy.position.copyFrom(bossConfig.spawnPos);
-    
-    const mEnemy = new BABYLON.StandardMaterial("mEnemy_" + bossConfig.id, scene);
-    mEnemy.diffuseColor = bossConfig.color;
-    mEnemy.emissiveColor = bossConfig.color.scale(0.6);
+
+    const mEnemy = new BABYLON.StandardMaterial("mEnemy_" + id, scene);
+    mEnemy.diffuseColor  = col;
+    mEnemy.emissiveColor = col.scale(0.85);
+    mEnemy.specularColor = new BABYLON.Color3(1, 1, 1);
+    mEnemy.specularPower  = 64;
     enemy.material = mEnemy;
-    
+
+    // ── ANNEAUX ORBITAUX ──────────────────────────────────────────
+    const ringMat = new BABYLON.StandardMaterial("ringMat_" + id, scene);
+    ringMat.emissiveColor = col.scale(0.95);
+    ringMat.diffuseColor  = col;
+    ringMat.disableLighting = true;
+    const ring1 = BABYLON.MeshBuilder.CreateTorus("bring1_" + id, { diameter: bossConfig.scale * 1.9, thickness: 0.05, tessellation: 48 }, scene);
+    ring1.material = ringMat; ring1.parent = enemy; ring1.isPickable = false;
+    const ring2 = ring1.clone("bring2_" + id); ring2.parent = enemy; ring2.rotation.x = Math.PI / 2.5;
+    const ring3 = ring1.clone("bring3_" + id); ring3.parent = enemy; ring3.rotation.z = Math.PI / 3; ring3.scaling.setAll(0.65);
+
+    // ── AURA DE PARTICULES ────────────────────────────────────────
+    const ps = new BABYLON.ParticleSystem("bps_" + id, 300, scene);
+    ps.particleTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/flare.png", scene);
+    ps.emitter = enemy;
+    ps.minEmitBox = new BABYLON.Vector3(-0.4, -0.4, -0.4);
+    ps.maxEmitBox = new BABYLON.Vector3( 0.4,  0.4,  0.4);
+    ps.color1 = new BABYLON.Color4(col.r, col.g, col.b, 1.0);
+    ps.color2 = new BABYLON.Color4(col.r, col.g, col.b, 0.4);
+    ps.colorDead = new BABYLON.Color4(0, 0, 0, 0);
+    ps.minSize = 0.08; ps.maxSize = 0.35;
+    ps.minLifeTime = 0.3; ps.maxLifeTime = 0.8;
+    ps.emitRate = 110;
+    ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+    ps.gravity = new BABYLON.Vector3(0, 1.2, 0);
+    ps.direction1 = new BABYLON.Vector3(-1, 1, -1);
+    ps.direction2 = new BABYLON.Vector3( 1, 1,  1);
+    ps.minEmitPower = 0.4; ps.maxEmitPower = 1.4;
+    ps.start();
+
+    // ── LABEL FLOTTANT (nom du boss) ──────────────────────────────
+    const labelPlane = BABYLON.MeshBuilder.CreatePlane("blabel_" + id, { width: 4.5, height: 1.1 }, scene);
+    labelPlane.parent = enemy;
+    labelPlane.position.y = bossConfig.scale * 1.2 + 1.0;
+    labelPlane.billboardMode = BABYLON.TransformNode.BILLBOARDMODE_ALL;
+    labelPlane.isPickable = false;
+    const dt = new BABYLON.DynamicTexture("dt_" + id, { width: 640, height: 160 }, scene, true);
+    dt.hasAlpha = true;
+    dt.drawText(bossConfig.name, null, 105, "bold 52px 'Courier New'", "#ffffff", "transparent", true);
+    const labelMat = new BABYLON.StandardMaterial("blabelMat_" + id, scene);
+    labelMat.diffuseTexture = dt;
+    labelMat.opacityTexture = dt;
+    labelMat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+    labelMat.disableLighting = true;
+    labelMat.backFaceCulling = false;
+    labelPlane.material = labelMat;
+
+    // ── ANIMATION : flottement + rotations ────────────────────────
     let alpha = 0;
-    scene.registerBeforeRender(() => {
-        if(enemy.isDisposed()) return;
+    const spinObs = scene.onBeforeRenderObservable.add(() => {
+        if (enemy.isDisposed()) return;
         alpha += 0.05;
-        enemy.position.y = bossConfig.spawnPos.y + Math.sin(alpha) * 0.2;
-        enemy.rotation.y += 0.02;
+        enemy.position.y = bossConfig.spawnPos.y + Math.sin(alpha) * 0.25;
+        enemy.rotation.y += 0.012;
+        ring1.rotation.z += 0.030;
+        ring2.rotation.y += 0.025;
+        ring3.rotation.x += 0.040;
     });
-    
+
+    // ── Nettoyage propre à la mort du boss ────────────────────────
+    enemy.onDisposeObservable.add(() => {
+        ps.dispose();
+        scene.onBeforeRenderObservable.remove(spinObs);
+    });
+
+    if (scene.shadowGenerator) scene.shadowGenerator.addShadowCaster(enemy, true);
     scene.activeBoss = enemy;
 };
 
@@ -696,7 +760,9 @@ const COMBAT = {
         d = Math.floor(d * 0.5);
     }
     
-    return Math.max(1, d); 
+    const finalDmg = Math.max(1, d);
+    if (window.GameAudio) window.GameAudio.hit(finalDmg); // SFX d'impact (joueur ET ennemi)
+    return finalDmg;
   },
 
   abilityCards: [
@@ -888,6 +954,7 @@ const COMBAT = {
 
   useItem: function(itemId) {
       if (!this.playerEntity.inventory[itemId]) return;
+      if (window.GameAudio) window.GameAudio.item();
       this.playerEntity.inventory[itemId]--;
       
       this.combatMenuState = 'MAIN';
@@ -932,6 +999,7 @@ const COMBAT = {
 
   useAbilityCard: function(card) {
     if (this.turn !== 'PLAYER' || !card) return;
+    if (window.GameAudio) window.GameAudio.select();
     if (!this.unlockedAbilityCards || !this.unlockedAbilityCards.has(card.id)) return;
     if (this.isAbilityOnCooldown(card.id)) return this.log(card.name + " est en cooldown.");
     
@@ -965,6 +1033,7 @@ const COMBAT = {
       this.log("FRAPPE BASIQUE : " + dmg + " dégâts. (+1 PA)");
     } 
     else if (card.id === "guard") {
+      if (window.GameAudio) window.GameAudio.guard();
       this.playerEntity.pa += 3;
       this.playerEntity.guarding = true;
       this.log("POSTURE DÉFENSIVE : Vous encaissez le prochain coup ! (+3 PA)");
@@ -1038,6 +1107,7 @@ const COMBAT = {
     if (qcmDiv) qcmDiv.remove();
 
     if (chosenIdx === correctIdx) {
+        if (window.GameAudio) window.GameAudio.qcmGood();
         const loots = ["potion_50", "pa_battery", "stun_bomb", "data_shield"];
         const loot = loots[Math.floor(Math.random() * loots.length)];
         this.playerEntity.inventory[loot] = (this.playerEntity.inventory[loot] || 0) + 1;
@@ -1049,6 +1119,7 @@ const COMBAT = {
         this.updateUI();
         this.setTurn('PLAYER'); // Garde la main
     } else {
+        if (window.GameAudio) window.GameAudio.qcmBad();
         this.log("ÉCHEC CRITIQUE ! Piratage repoussé. FIN DU TOUR !");
         this.updateUI();
         this.setTurn('BUSY');
@@ -1198,6 +1269,7 @@ const COMBAT = {
     document.getElementById("combatUI").style.display = "block";
     this.updateUI();
     this.log("COMBAT INITIÉ. SYSTÈME OPÉRATIONNEL.");
+    if (window.GameAudio) { window.GameAudio.combatStart(); window.GameAudio.combatMusic(); }
 
     setTimeout(() => this.setTurn('PLAYER'), 1500);
   },
@@ -1244,6 +1316,7 @@ const COMBAT = {
   },
 
   enemyAI: async function() {
+    const bossName = this.enemyEntity.name.split(" ")[0]; // ALPHA, BETA... (déclaré en haut pour éviter le TDZ)
     this.log(this.enemyEntity.name + " réfléchit...");
     await new Promise(r => setTimeout(r, 1000));
 
@@ -1296,9 +1369,8 @@ const COMBAT = {
         if (this.enemyEntity.pa < 3) actionType = Math.random() > 0.3 ? "guard" : "basic"; // Tank garde souvent
     }
 
-    let bossName = this.enemyEntity.name.split(" ")[0]; // ALPHA, BETA...
-
     if (actionType === "guard") {
+        if (window.GameAudio) window.GameAudio.guard();
         this.enemyEntity.pa += 3;
         this.enemyEntity.guarding = true;
         this.log(bossName + " UTILISE : Posture Défensive (+3 PA) !");
@@ -1326,8 +1398,9 @@ const COMBAT = {
     this.updateUI();
     setTimeout(() => {
       if (this.enemyEntity.hp <= 0) {
+        if (window.GameAudio) window.GameAudio.victory();
         const bossCfg = window.BOSS_ROSTER[window.GAME_PROGRESSION.currentBossIndex];
-        
+
         if (bossCfg.drop === "win") {
              this.log("VICTOIRE TOTALE ! VOUS AVEZ FINI LE JEU !");
              setTimeout(() => { alert("Félicitations, vous avez vaincu OMEGA !"); location.reload(); }, 3000);
@@ -1351,6 +1424,7 @@ const COMBAT = {
             this.endCombat();
         }, 2000);
       } else if (this.playerEntity.hp <= 0) {
+        if (window.GameAudio) window.GameAudio.defeat();
         this.log("SYSTÈME CRITIQUE. VOUS ÊTES MORT.");
         setTimeout(() => location.reload(), 3000);
       } else {
@@ -1368,6 +1442,7 @@ const COMBAT = {
   endCombat: function() {
 
     this.active = false;
+    if (window.GameAudio) window.GameAudio.ambient(); // retour à la musique d'exploration
     window.removeEventListener("keydown", this.boundInputHandler);
     document.getElementById("combatUI").style.display = "none";
     document.getElementById("hud").style.display = "block";
@@ -1454,10 +1529,17 @@ async function init() {
 async function buildScene(engine, canvas) {
   const scene       = new BABYLON.Scene(engine);
   scene.clearColor  = new BABYLON.Color4(0.06, 0.06, 0.07, 1.0);
-  scene.ambientColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Réduit pour permettre aux ombres d'exister
+  scene.ambientColor = new BABYLON.Color3(0.18, 0.18, 0.22); // Réduit pour éviter le rendu "délavé"
   // Indispensable pour que les matériaux PBR (du .glb) réagissent bien à la lumière :
   scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://playground.babylonjs.com/textures/environment.dds", scene);
-  // scene.environmentIntensity = 0.5; // Ajustable
+  scene.environmentIntensity = 0.55; // Baissé : l'IBL pleine cramait toute la scène
+
+  // ── TONE MAPPING ACES + exposition : look cinématique, anti-surexposition ──
+  const ipc = scene.imageProcessingConfiguration;
+  ipc.toneMappingEnabled = true;
+  ipc.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+  ipc.exposure = 0.95;
+  ipc.contrast = 1.15;
 
   scene.fogMode     = BABYLON.Scene.FOGMODE_EXP2;
   scene.fogColor    = new BABYLON.Color3(0.08, 0.08, 0.09);
@@ -1493,6 +1575,15 @@ async function buildScene(engine, canvas) {
   // â”€â”€ CAMÃ‰RA 3ÃˆME PERSONNE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const camera = buildCamera(scene, canvas, player.mesh);
 
+  // Références globales (combat, accès jury, debug)
+  window.__scene = scene;
+  window.__camera = camera;
+  window.__player = player;
+  window.playerEntityObj = player; // active les animations d'attaque du joueur en combat
+
+  // â”€â”€ ACCÃˆS JURY (sélecteur de boss) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  buildJuryPanel(scene, camera, player);
+
   // â”€â”€ INPUTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   bindInput();
 
@@ -1508,14 +1599,14 @@ async function buildScene(engine, canvas) {
 function buildLights(scene) {
   // Eclairage plus neutre et plus fort pour l'intérieur
   const hemi        = new BABYLON.HemisphericLight("hemi", BABYLON.Vector3.Up(), scene);
-  hemi.intensity    = 0.4; // Baissé pour laisser les ombres du soleil dominer
+  hemi.intensity    = 0.35; // Baissé pour laisser les ombres du soleil dominer
   hemi.diffuse      = new BABYLON.Color3(1.0, 1.0, 1.0);
   hemi.groundColor  = new BABYLON.Color3(0.5, 0.5, 0.5);
   hemi.specular     = new BABYLON.Color3(0.1, 0.1, 0.1);
 
   // Directionnelle principale (Le Soleil)
   const sunLight    = new BABYLON.DirectionalLight("sunLight", new BABYLON.Vector3(-0.5, -1.0, -0.5), scene);
-  sunLight.intensity   = 2.5; // Très lumineux pour créer de vraies ombres
+  sunLight.intensity   = 1.7; // Calibré avec le tone mapping ACES
   sunLight.diffuse     = new BABYLON.Color3(1.0, 0.95, 0.85);
   sunLight.specular    = new BABYLON.Color3(0.5, 0.5, 0.5);
   sunLight.position    = new BABYLON.Vector3(100, 200, 100);
@@ -1554,6 +1645,90 @@ function mkMat(name, scene, diff, emit = null) {
   m.specularPower = 90;
   if (emit) m.emissiveColor = emit;
   return m;
+}
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ðŸ§‘â€âš–ï¸  ACCÃˆS JURY â€” sÃ©lecteur de boss (test de tous les niveaux)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+function buildJuryPanel(scene, camera, player) {
+  const style = document.createElement('style');
+  style.textContent = `
+    #juryBtn { position: fixed; right: 18px; bottom: 18px; z-index: 500;
+      background: rgba(3,5,12,0.85); color: #48CAE4; border: 1px solid #2E86DE;
+      font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 2px;
+      padding: 10px 14px; cursor: pointer; text-transform: uppercase; }
+    #juryBtn:hover { background: #2E86DE; color: #fff; }
+    body.combat-mode #juryBtn { display: none; }
+    #juryPanel { position: fixed; inset: 0; z-index: 600; background: rgba(2,4,10,0.82);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Courier New', monospace; color: #cfe8ff; }
+    #juryPanel h3 { color:#48CAE4; letter-spacing:3px; margin-bottom:6px; }
+    #juryPanel p  { color:#5b7da0; font-size:12px; margin-bottom:18px; }
+    #juryBossList { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .juryBoss { background: rgba(3,5,12,0.9); border:1px solid #2E86DE; color:#48CAE4;
+      font-family:'Courier New',monospace; padding:14px 22px; cursor:pointer; text-align:left;
+      min-width:230px; transition:0.15s; }
+    .juryBoss:hover { background: rgba(46,134,222,0.25); transform: translateY(-2px); }
+    .juryBoss small { color:#7794b3; }
+    #juryClose { margin-top:22px; background:none; border:1px solid #5b7da0; color:#9fc0e0;
+      font-family:'Courier New',monospace; padding:8px 18px; cursor:pointer; letter-spacing:2px; }
+    #juryClose:hover { border-color:#48CAE4; color:#fff; }
+  `;
+  document.head.appendChild(style);
+
+  const btn = document.createElement('button');
+  btn.id = 'juryBtn';
+  btn.textContent = '⚙ Jury · Niveaux';
+  document.body.appendChild(btn);
+
+  const panel = document.createElement('div');
+  panel.id = 'juryPanel';
+  panel.style.display = 'none';
+  let html = `<h3>ACCÈS JURY — CHOISIR UN BOSS</h3>
+              <p>Lance directement le combat contre n'importe quel boss (touches 1-4 aussi).</p>
+              <div id="juryBossList">`;
+  (window.BOSS_ROSTER || []).forEach((b, i) => {
+    const c = b.color;
+    const css = `rgb(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0})`;
+    html += `<button class="juryBoss" data-idx="${i}" style="border-color:${css};color:${css}">
+               <b>${i+1}. ${b.name}</b><br><small>PV ${b.maxHp} · ATK ${b.atk} · DEF ${b.def}</small>
+             </button>`;
+  });
+  html += `</div><button id="juryClose">Fermer (Échap)</button>`;
+  panel.innerHTML = html;
+  document.body.appendChild(panel);
+
+  const open  = () => { if (!(window.COMBAT && window.COMBAT.active)) panel.style.display = 'flex'; };
+  const close = () => { panel.style.display = 'none'; };
+  btn.onclick = open;
+  panel.querySelector('#juryClose').onclick = close;
+
+  function warpToBoss(idx) {
+    if (window.COMBAT && window.COMBAT.active) return;
+    if (idx < 0 || idx >= window.BOSS_ROSTER.length) return;
+    window.GAME_PROGRESSION.currentBossIndex = idx;
+    window.spawnActiveBoss(scene);
+    const boss = scene.activeBoss;
+    if (!boss) return;
+    // Téléporte le boss devant le joueur => combat immédiat et bien cadré
+    const p = player.mesh.position;
+    boss.position.x = p.x;
+    boss.position.z = p.z - 4;
+    if (scene.shadowGenerator) scene.shadowGenerator.addShadowCaster(boss, true);
+    window.COMBAT.init(scene, camera, player, boss);
+  }
+  window.__juryWarp = warpToBoss;
+
+  panel.querySelectorAll('.juryBoss').forEach((b) => {
+    b.onclick = () => { close(); warpToBoss(parseInt(b.dataset.idx)); };
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (window.COMBAT && window.COMBAT.active) return;
+    if (e.code === 'Escape') { close(); return; }
+    const m = e.code.match(/^Digit([1-9])$/);
+    if (m) { close(); warpToBoss(parseInt(m[1]) - 1); }
+  });
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2148,6 +2323,7 @@ function loop(scene, player, camera, engine) {
 
   // â”€â”€ Saut (autorisÃ© uniquement si au sol) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (G.jumpReq && G.grounded && G.jumpCooldown <= 0) {
+    if (window.GameAudio) window.GameAudio.jump();
     player.playAnim("jump");
     body.setLinearVelocity(new BABYLON.Vector3(
       actualDir.x * G.currentSpeed,
